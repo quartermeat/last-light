@@ -14,7 +14,7 @@ import (
 )
 
 const tile = 32
-const version = "v0.6.10"
+const version = "v0.6.11"
 
 type Food struct {
 	name                                 string
@@ -34,22 +34,22 @@ type Animal struct {
 	turnIn       float64
 }
 type Game struct {
-	day                        int
+	day                                       int
 	hour, tickTimer, moveTimer, fireBurnHours float64
-	hunger, warmth, wood       int
-	shelter, fire              bool
-	fireX, fireY, shelterX, shelterY float64
-	weather, message           string
-	x, y                       float64
-	nodes                      []Node
-	animals                    []Animal
-	foods                      []Food
-	rng                        *rand.Rand
-	nutrition                  Nutrition
-	sickTimer                  int
-	scores                     []Score
-	dead                       bool
-	events                     []LogEvent
+	hunger, warmth, wood                      int
+	shelter, fire                             bool
+	fireX, fireY, shelterX, shelterY          float64
+	weather, message                          string
+	x, y                                      float64
+	nodes                                     []Node
+	animals                                   []Animal
+	foods                                     []Food
+	rng                                       *rand.Rand
+	nutrition                                 Nutrition
+	sickTimer                                 int
+	scores                                    []Score
+	dead                                      bool
+	events                                    []LogEvent
 }
 
 func NewGame() *Game {
@@ -182,16 +182,36 @@ func (g *Game) gather() {
 	best, bestDistance := -1, 999999.0
 	for i := range g.nodes {
 		n := &g.nodes[i]
-		if n.used || abs(float64(n.x)-g.x) >= 42 || abs(float64(n.y)-g.y) >= 42 { continue }
-		if n.kind != "plant" && !(n.kind == "wood" && g.wood < 12) { continue }
+		if n.used || abs(float64(n.x)-g.x) >= 42 || abs(float64(n.y)-g.y) >= 42 {
+			continue
+		}
+		if n.kind != "plant" && !(n.kind == "wood" && g.wood < 12) {
+			continue
+		}
 		dx, dy := float64(n.x)-g.x, float64(n.y)-g.y
 		distance := dx*dx + dy*dy
-		if distance < bestDistance { best, bestDistance = i, distance }
+		if distance < bestDistance {
+			best, bestDistance = i, distance
+		}
 	}
-	if best < 0 { g.message = "Nothing useful is close enough to gather."; return }
+	if best < 0 {
+		g.message = "Nothing useful is close enough to gather."
+		return
+	}
 	n := &g.nodes[best]
-	if n.kind == "wood" { g.expend(20, 1, 3, 0); g.wood++; n.used = true; g.log("gather", "gathered wood"); g.message = "You gather dry wood. No luck involved."; return }
-	g.expend(15, 0, 2, 0); g.foods = append(g.foods, n.food); n.used = true; g.log("gather", n.food.name); g.message = fmt.Sprintf("You gather %s. It will be eaten automatically when hunger is low.", n.food.name)
+	if n.kind == "wood" {
+		g.expend(20, 1, 3, 0)
+		g.wood++
+		n.used = true
+		g.log("gather", "gathered wood")
+		g.message = "You gather dry wood. No luck involved."
+		return
+	}
+	g.expend(15, 0, 2, 0)
+	g.foods = append(g.foods, n.food)
+	n.used = true
+	g.log("gather", n.food.name)
+	g.message = fmt.Sprintf("You gather %s. It will be eaten automatically when hunger is low.", n.food.name)
 }
 func (g *Game) fish() {
 	if !g.nearWater() {
@@ -356,11 +376,13 @@ func (g *Game) finishRun() {
 	}
 	g.dead = true
 	hours := g.runHours()
+	name := "RUN"
 	if qualifiesScore(g.scores, hours) {
-		g.scores = recordScore(g.scores, hours, getInitials())
+		name = getInitials()
+		g.scores = recordScore(g.scores, hours, name)
 	}
 	g.log("death", fmt.Sprintf("run ended after %d hours", hours))
-	saveRunLog(g.events, g.runHours())
+	saveRunLog(g.events, hours, name)
 	g.message = "You did not make it. Press Escape to try again."
 }
 func (g *Game) tick() {
@@ -385,7 +407,9 @@ func (g *Game) tick() {
 				g.message = "The fire goes out. There is no wood left to feed it."
 			}
 		}
-		if g.fire { g.warmth += 2 }
+		if g.fire {
+			g.warmth += 2
+		}
 	} else {
 		g.warmth--
 	}
@@ -484,7 +508,9 @@ func ebitengineDrawLeaderboard(screen *ebiten.Image, g *Game) {
 	text.Draw(screen, fmt.Sprintf("SURVIVED %d IN-GAME HOURS", g.runHours()), basicfont.Face7x13, 215, 130, color.White)
 	text.Draw(screen, "TOP 6 / 100 LOCAL LEADERBOARD", basicfont.Face7x13, 215, 170, color.White)
 	visibleScores := len(g.scores)
-	if visibleScores > 6 { visibleScores = 6 }
+	if visibleScores > 6 {
+		visibleScores = 6
+	}
 	for i := 0; i < visibleScores; i++ {
 		score := g.scores[i]
 		text.Draw(screen, fmt.Sprintf("%d. %s  %d hours", i+1, score.Name, score.Hours), basicfont.Face7x13, 225, 195+i*22, color.RGBA{210, 225, 215, 255})
@@ -499,16 +525,3 @@ func main() {
 		panic(err)
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

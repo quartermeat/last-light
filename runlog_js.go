@@ -12,7 +12,7 @@ type storedRun struct {
 	Events []LogEvent `json:"events"`
 }
 
-func saveRunLog(events []LogEvent, hours int) {
+func saveRunLog(events []LogEvent, hours int, name string) {
 	storage := js.Global().Get("localStorage")
 	var history []storedRun
 	value := storage.Call("getItem", "last-light-run-history")
@@ -27,6 +27,7 @@ func saveRunLog(events []LogEvent, hours int) {
 	storage.Call("setItem", "last-light-run-history", string(data))
 	latest, _ := json.Marshal(events)
 	storage.Call("setItem", "last-light-latest-run-log", string(latest))
-	if downloader := js.Global().Get("lastLightDownloadLog"); !downloader.IsUndefined() { downloader.Invoke(string(latest)) }
+	payload, _ := json.Marshal(struct { Name string `json:"name"`; Hours int `json:"hours"`; Events []LogEvent `json:"events"` }{name, hours, events})`r`n`options := map[string]interface{}{`r`n`t"method": "POST",`r`n`t"headers": map[string]interface{}{"Content-Type": "application/json"},`r`n`t"body": string(payload),`r`n}`r`n`promise := js.Global().Call("fetch", "/api/runs", js.ValueOf(options))`r`n`promise.Call("catch", js.FuncOf(func(js.Value, []js.Value) interface{} { return nil }))
 }
+
 

@@ -2,4 +2,4 @@
 
 package main
 
-func saveRunLog([]LogEvent, int) {}
+func saveRunLog([]LogEvent, int, string) {}
