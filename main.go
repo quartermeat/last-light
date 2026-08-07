@@ -14,7 +14,7 @@ import (
 )
 
 const tile = 32
-const version = "v0.6.1"
+const version = "v0.6.2"
 
 type Food struct {
 	name                                 string
@@ -109,7 +109,7 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyQ) {
 		g.interact()
 	}
-	if inpututil.IsKeyJustPressed(ebiten.Key1) && g.near("camp") && g.wood >= 2 {
+	if inpututil.IsKeyJustPressed(ebiten.Key1) && g.near("camp") && !g.fire && g.wood >= 2 {
 		g.expend(30, 0, 5, 1)
 		g.wood -= 2
 		g.fire = true
@@ -378,7 +378,19 @@ func (g *Game) tick() {
 		g.warmth--
 	}
 	if g.fire {
-		g.warmth += 2
+		g.fireBurnHours += 1.0 / 60.0
+		if g.fireBurnHours >= 4 {
+			if g.wood > 0 {
+				g.wood--
+				g.fireBurnHours = 0
+				g.log("fire_fuel", "fire consumed 1 wood")
+			} else {
+				g.fire = false
+				g.log("fire_out", "fire ran out of wood")
+				g.message = "The fire goes out. There is no wood left to feed it."
+			}
+		}
+		if g.fire { g.warmth += 2 }
 	} else {
 		g.warmth--
 	}
@@ -455,7 +467,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	text.Draw(screen, "WASD / ARROWS move", basicfont.Face7x13, 32, 420, color.White)
 	text.Draw(screen, interactionText, basicfont.Face7x13, 190, 420, interactionColor)
 	text.Draw(screen, "ESC restart", basicfont.Face7x13, 300, 420, color.White)
-	text.Draw(screen, "1 fire", basicfont.Face7x13, 32, 442, g.actionColor(g.near("camp") && g.wood >= 2))
+	text.Draw(screen, "1 fire", basicfont.Face7x13, 32, 442, g.actionColor(g.near("camp") && !g.fire && g.wood >= 2))
 	text.Draw(screen, "2 shelter", basicfont.Face7x13, 88, 442, g.actionColor(g.near("camp") && !g.shelter && g.wood >= 6))
 	text.Draw(screen, "3 empty", basicfont.Face7x13, 160, 442, color.RGBA{150, 160, 155, 255})
 	text.Draw(screen, "4 empty", basicfont.Face7x13, 220, 442, color.RGBA{150, 160, 155, 255})
@@ -489,5 +501,6 @@ func main() {
 		panic(err)
 	}
 }
+
 
 
