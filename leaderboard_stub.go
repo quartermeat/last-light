@@ -2,5 +2,6 @@
 
 package main
 
-func loadScores() []int { return nil }
-func saveScores([]int)  {}
+func loadScores() []Score { return nil }
+func saveScores([]Score)  {}
+func getInitials() string { return "YOU" }

@@ -2,14 +2,22 @@ package main
 
 import "sort"
 
-func recordScore(scores []int, score int) []int {
-	if score <= 0 {
+type Score struct {
+	Name  string `json:"name"`
+	Hours int    `json:"hours"`
+}
+
+func qualifiesScore(scores []Score, hours int) bool {
+	return hours > 0 && (len(scores) < 100 || hours > scores[len(scores)-1].Hours)
+}
+func recordScore(scores []Score, score int, name string) []Score {
+	if !qualifiesScore(scores, score) {
 		return scores
 	}
-	scores = append(scores, score)
-	sort.Sort(sort.Reverse(sort.IntSlice(scores)))
-	if len(scores) > 5 {
-		scores = scores[:5]
+	scores = append(scores, Score{Name: name, Hours: score})
+	sort.Slice(scores, func(i, j int) bool { return scores[i].Hours > scores[j].Hours })
+	if len(scores) > 100 {
+		scores = scores[:100]
 	}
 	saveScores(scores)
 	return scores

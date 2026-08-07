@@ -14,7 +14,7 @@ import (
 )
 
 const tile = 32
-const version = "v0.3.1"
+const version = "v0.4.0"
 
 type Food struct {
 	name                                 string
@@ -46,8 +46,9 @@ type Game struct {
 	rng                        *rand.Rand
 	nutrition                  Nutrition
 	sickTimer                  int
-	scores                     []int
+	scores                     []Score
 	dead                       bool
+	events                     []LogEvent
 }
 
 func NewGame() *Game {
@@ -65,6 +66,9 @@ func (g *Game) Update() error {
 	}
 	if g.dead {
 		return nil
+	}
+	if len(g.events) == 0 {
+		g.log("run_start", "new survival run")
 	}
 	dx, dy := 0.0, 0.0
 	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyLeft) {
@@ -98,6 +102,7 @@ func (g *Game) Update() error {
 		if g.moveTimer >= 1 {
 			g.moveTimer = 0
 			g.expend(35, 1, 5, 1)
+			g.log("movement", "movement expenditure")
 		}
 	}
 	g.updateAnimals()
@@ -108,12 +113,14 @@ func (g *Game) Update() error {
 		g.expend(30, 0, 5, 1)
 		g.wood -= 2
 		g.fire = true
+		g.log("fire", "lit fire at camp")
 		g.message = "The fire catches. Warmth returns."
 	}
 	if inpututil.IsKeyJustPressed(ebiten.Key2) && g.near("camp") && !g.shelter && g.wood >= 6 {
 		g.expend(60, 0, 8, 2)
 		g.wood -= 6
 		g.shelter = true
+		g.log("shelter", "built shelter at camp")
 		g.message = "A rough shelter stands against the wind."
 	}
 	g.hour += 1.0 / 60.0
@@ -197,10 +204,13 @@ func (g *Game) fish() {
 		return
 	}
 	g.expend(35, 1, 5, 1)
+	g.log("movement", "movement expenditure")
 	if g.rng.Float64() < .55 {
 		g.foods = append(g.foods, Food{"fish", 500, 35, 0, 28, 0, 0})
+		g.log("fish_success", "caught fish")
 		g.message = "A fish bites. A protein-rich meal is secured."
 	} else {
+		g.log("fish_failure", "no fish caught")
 		g.message = "The line goes slack. Nothing bites."
 	}
 }
@@ -214,11 +224,13 @@ func (g *Game) hunt() {
 		if g.rng.Float64() < .5 {
 			a.active = false
 			g.foods = append(g.foods, Food{"game meat", 600, 45, 0, 20, 0, 0})
+			g.log("hunt_success", "caught game")
 			g.message = "The hunt succeeds. You bring nutrient-dense meat back to camp."
 		} else {
 			a.vx *= 3
 			a.vy *= 3
 			a.turnIn = 2
+			g.log("hunt_failure", "game escaped")
 			g.message = "The animal bolts. The hunt got away."
 		}
 		return
@@ -319,6 +331,7 @@ func (g *Game) eatBestFood() {
 		if g.hunger < 0 {
 			g.hunger = 0
 		}
+		g.log("sickness", meal.name)
 		g.message = fmt.Sprintf("The %s makes you sick. You misidentified a risky plant.", meal.name)
 		return
 	}
@@ -332,7 +345,14 @@ func (g *Game) eatBestFood() {
 	g.nutrition.carbs += meal.carbs
 	g.nutrition.fat += meal.fat
 	g.nutrition.fiber += meal.fiber
+	g.log("meal", fmt.Sprintf("%s restored %d hunger", meal.name, restore))
 	g.message = fmt.Sprintf("Automatic meal: %s restores %d hunger.", meal.name, restore)
+}
+func (g *Game) log(kind, details string) {
+	g.events = append(g.events, LogEvent{Hour: float64(g.day-1)*24 + g.hour, Kind: kind, Details: details})
+	if len(g.events) > 2000 {
+		g.events = g.events[len(g.events)-2000:]
+	}
 }
 func (g *Game) runHours() int { return (g.day-1)*24 + int(g.hour) }
 func (g *Game) finishRun() {
@@ -340,7 +360,12 @@ func (g *Game) finishRun() {
 		return
 	}
 	g.dead = true
-	g.scores = recordScore(g.scores, g.runHours())
+	hours := g.runHours()
+	if qualifiesScore(g.scores, hours) {
+		g.scores = recordScore(g.scores, hours, getInitials())
+	}
+	g.log("death", fmt.Sprintf("run ended after %d hours", hours))
+	saveRunLog(g.events, g.runHours())
 	g.message = "You did not make it. Press Escape to try again."
 }
 func (g *Game) tick() {
@@ -450,9 +475,9 @@ func ebitengineDrawLeaderboard(screen *ebiten.Image, g *Game) {
 	ebitenutil.DrawRect(screen, 150, 70, 340, 285, color.RGBA{12, 18, 20, 235})
 	text.Draw(screen, "RUN OVER", basicfont.Face7x13, 285, 105, color.RGBA{245, 220, 150, 255})
 	text.Draw(screen, fmt.Sprintf("SURVIVED %d IN-GAME HOURS", g.runHours()), basicfont.Face7x13, 215, 130, color.White)
-	text.Draw(screen, "LOCAL LEADERBOARD", basicfont.Face7x13, 250, 170, color.White)
+	text.Draw(screen, "TOP 100 LOCAL LEADERBOARD", basicfont.Face7x13, 230, 170, color.White)
 	for i, score := range g.scores {
-		text.Draw(screen, fmt.Sprintf("%d. %d hours", i+1, score), basicfont.Face7x13, 245, 195+i*22, color.RGBA{210, 225, 215, 255})
+		text.Draw(screen, fmt.Sprintf("%d. %s  %d hours", i+1, score.Name, score.Hours), basicfont.Face7x13, 225, 195+i*22, color.RGBA{210, 225, 215, 255})
 	}
 	text.Draw(screen, "ESC to start a new run", basicfont.Face7x13, 235, 330, color.RGBA{240, 220, 160, 255})
 }

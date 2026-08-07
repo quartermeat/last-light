@@ -34,5 +34,6 @@ Nutrition is simulated behind the scenes: calories, protein, carbohydrates, fat,
 
 ## Leaderboard
 
-The browser build keeps the top five survival runs in local browser storage. Scores are measured in in-game hours and appear on the run-over screen. No account or network service is required.
+The browser build keeps the top 100 survival runs in local browser storage. Qualifying runs use a classic three-character initials entry, and scores are measured in in-game hours. Completed runs also retain structured gameplay logs for later correlation. No account or network service is required.
+
 
