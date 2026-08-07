@@ -15,7 +15,7 @@ import (
 
 const tile = 32
 const maxWood = 20
-const version = "v0.6.12"
+const version = "v0.6.13"
 
 type Food struct {
 	name                                 string
@@ -396,7 +396,10 @@ func (g *Game) tick() {
 		g.warmth--
 	}
 	if g.fire {
-		g.fireBurnHours += 1.0 / 60.0
+		// tick advances the simulation by one in-game hour, so fuel must use
+		// the same unit. The previous frame-sized increment made a four-hour
+		// fire take roughly four real-world minutes to consume wood.
+		g.fireBurnHours++
 		if g.fireBurnHours >= 4 {
 			if g.wood > 0 {
 				g.wood--
