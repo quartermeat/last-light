@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"image/color"
+	"math"
 	"math/rand"
 	"time"
 
@@ -18,7 +19,7 @@ const mapCols = 18
 const mapRows = 10
 const waterTileCount = 18
 const maxWood = 20
-const version = "v0.11.3"
+const version = "v0.12.0"
 
 type Food struct {
 	name                                 string
@@ -711,6 +712,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	ebitenutil.DrawRect(screen, g.x-8, g.y-8, 16, 16, color.RGBA{231, 194, 142, 255})
 	ebitenutil.DrawRect(screen, g.x-5, g.y-13, 10, 7, color.RGBA{85, 52, 36, 255})
+	if g.hour < 6 || g.hour >= 18 {
+		g.drawNightOverlay(screen)
+	}
 	minutes := int((g.hour - float64(int(g.hour))) * 60)
 	minutes = (minutes / 15) * 15
 	text.Draw(screen, fmt.Sprintf("LAST LIGHT   DAY %d   %02d:%02d   %s", g.day, int(g.hour), minutes, g.weather), basicfont.Face7x13, 32, 28, color.White)
@@ -722,6 +726,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		rainStatus, rainColor = "RAIN: -2 WARMTH", color.RGBA{245, 110, 100, 255}
 	}
 	text.Draw(screen, rainStatus, basicfont.Face7x13, 32, 44, rainColor)
+	if g.hour < 6 || g.hour >= 18 {
+		text.Draw(screen, "NIGHT: LIMITED VISIBILITY", basicfont.Face7x13, 230, 44, color.RGBA{230, 190, 120, 255})
+	}
 	text.Draw(screen, fmt.Sprintf("HUNGER %d   WARMTH %d   WOOD %d   FOOD %d", g.hunger, g.warmth, g.wood, len(g.foods)), basicfont.Face7x13, 32, 397, color.White)
 	interactionText, interactionColor := g.interactionLabel()
 	text.Draw(screen, "WASD / ARROWS move", basicfont.Face7x13, 32, 420, color.White)
@@ -747,17 +754,46 @@ func (g *Game) Draw(screen *ebiten.Image) {
 func sunMaskColor(heat int) color.RGBA {
 	switch heat {
 	case 5:
-		return color.RGBA{255, 232, 38, 82}
+		return color.RGBA{255, 232, 38, 38}
 	case 4:
-		return color.RGBA{255, 222, 44, 62}
+		return color.RGBA{255, 222, 44, 29}
 	case 3:
-		return color.RGBA{255, 212, 52, 45}
+		return color.RGBA{255, 212, 52, 21}
 	case 2:
-		return color.RGBA{255, 202, 66, 30}
+		return color.RGBA{255, 202, 66, 14}
 	case 1:
-		return color.RGBA{255, 194, 78, 18}
+		return color.RGBA{255, 194, 78, 8}
 	default:
-		return color.RGBA{255, 188, 92, 8}
+		return color.RGBA{255, 188, 92, 4}
+	}
+}
+
+func (g *Game) drawNightOverlay(screen *ebiten.Image) {
+	const radius = 54.0
+	const mapLeft, mapTop, mapRight, mapBottom = 32.0, 48.0, 608.0, 368.0
+	for y := mapTop; y < mapBottom; y += 4 {
+		distanceY := (y + 2) - g.y
+		if distanceY < 0 {
+			distanceY = -distanceY
+		}
+		halfWidth := 0.0
+		if distanceY < radius {
+			halfWidth = math.Sqrt(radius*radius - distanceY*distanceY)
+		}
+		left := g.x - halfWidth
+		right := g.x + halfWidth
+		if left < mapLeft {
+			left = mapLeft
+		}
+		if right > mapRight {
+			right = mapRight
+		}
+		if left > mapLeft {
+			ebitenutil.DrawRect(screen, mapLeft, y, left-mapLeft, 4, color.RGBA{5, 9, 16, 225})
+		}
+		if right < mapRight {
+			ebitenutil.DrawRect(screen, right, y, mapRight-right, 4, color.RGBA{5, 9, 16, 225})
+		}
 	}
 }
 
