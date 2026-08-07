@@ -19,7 +19,7 @@ const mapCols = 18
 const mapRows = 10
 const waterTileCount = 18
 const maxWood = 20
-const version = "v0.12.0"
+const version = "v0.13.0"
 
 type Food struct {
 	name                                 string
@@ -653,36 +653,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for row := 0; row < mapRows; row++ {
 		for col := 0; col < mapCols; col++ {
 			x, y := 32+col*tile, 48+row*tile
+			brightness := g.sunBrightness(col)
 			if g.water[col][row] {
-				ebitenutil.DrawRect(screen, float64(x), float64(y), tile, tile, color.RGBA{52, 112, 143, 255})
+				ebitenutil.DrawRect(screen, float64(x), float64(y), tile, tile, scaleColor(color.RGBA{52, 112, 143, 255}, brightness))
+				ebitenutil.DrawRect(screen, float64(x+3), float64(y+9), tile-6, 2, scaleColor(color.RGBA{125, 190, 205, 180}, brightness))
 				continue
 			}
 			c := color.RGBA{58, 98, 73, 255}
 			if (x/tile+y/tile)%3 == 0 {
 				c = color.RGBA{61, 103, 76, 255}
 			}
-			ebitenutil.DrawRect(screen, float64(x), float64(y), tile-1, tile-1, c)
-		}
-	}
-	if sun, visible := g.sunPosition(); visible {
-		for column := 0; column < mapCols; column++ {
-			distance := sun - (float64(column) + 0.5)
-			if distance < 0 {
-				distance = -distance
-			}
-			heat := 5 - distance
-			mask := sunMaskColor(heat)
-			ebitenutil.DrawRect(screen, float64(32+column*tile), 48, tile, 320, mask)
-		}
-	}
-	for row := 0; row < mapRows; row++ {
-		for col := 0; col < mapCols; col++ {
-			if !g.water[col][row] {
-				continue
-			}
-			x, y := 32+col*tile, 48+row*tile
-			ebitenutil.DrawRect(screen, float64(x), float64(y), tile, tile, color.RGBA{35, 105, 145, 225})
-			ebitenutil.DrawRect(screen, float64(x+3), float64(y+9), tile-6, 2, color.RGBA{125, 190, 205, 180})
+			ebitenutil.DrawRect(screen, float64(x), float64(y), tile-1, tile-1, scaleColor(c, brightness))
 		}
 	}
 	for _, n := range g.nodes {
@@ -754,16 +735,33 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 }
 
-func sunMaskColor(heat float64) color.RGBA {
-	if heat < 0 {
-		heat = 0
+func (g *Game) sunBrightness(column int) float64 {
+	sun, visible := g.sunPosition()
+	if !visible {
+		return 1
 	}
-	if heat > 5 {
-		heat = 5
+	distance := sun - (float64(column) + 0.5)
+	if distance < 0 {
+		distance = -distance
 	}
-	alpha := uint8(4 + heat*7)
-	blue := uint8(92 - heat*11)
-	return color.RGBA{255, 188, blue, alpha}
+	if distance > 9 {
+		distance = 9
+	}
+	return 1.08 - distance*0.025
+}
+
+func scaleColor(c color.RGBA, brightness float64) color.RGBA {
+	channel := func(value uint8) uint8 {
+		scaled := int(float64(value) * brightness)
+		if scaled < 0 {
+			return 0
+		}
+		if scaled > 255 {
+			return 255
+		}
+		return uint8(scaled)
+	}
+	return color.RGBA{channel(c.R), channel(c.G), channel(c.B), c.A}
 }
 
 func (g *Game) drawFogOverlay(screen *ebiten.Image) {
