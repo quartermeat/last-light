@@ -8,7 +8,10 @@ import (
 )
 
 type point struct{ x, y float64 }
-type food struct{ calories, risk int }
+type food struct {
+	calories, protein, carbs, fat, fiber int
+	risk                                 float64
+}
 type strategy struct {
 	woodTarget int
 	plants     int
@@ -16,17 +19,18 @@ type strategy struct {
 	fishFirst  bool
 }
 type run struct {
-	hourTotalCount int
-	hunger, warmth int
-	wood, calories int
-	fire, shelter  bool
-	fuelHours      int
-	position       point
-	woods, plants  []point
-	animals        []point
-	foods          []food
-	rng            *rand.Rand
-	weather        int
+	hourTotalCount      int
+	hunger, warmth      int
+	wood, calories      int
+	protein, carbs, fat int
+	fire, shelter       bool
+	fuelQuarters        int
+	position            point
+	woods, plants       []point
+	animals             []point
+	foods               []food
+	rng                 *rand.Rand
+	weather             int
 }
 
 func main() {
@@ -62,7 +66,7 @@ func simulate(s strategy, seed int64) int {
 		g.move(g.woods[0])
 		g.woods = g.woods[1:]
 		g.wood++
-		g.action(20)
+		g.action(20, 1, 3, 0)
 	}
 	if g.wood >= 8 && !g.dead() {
 		g.wood -= 8
@@ -74,15 +78,16 @@ func simulate(s strategy, seed int64) int {
 	for i := 0; i < s.plants && len(g.plants) > 0 && !g.dead(); i++ {
 		g.move(g.plants[0])
 		g.plants = g.plants[1:]
-		g.foods = append(g.foods, food{calories: 80 + g.rng.Intn(241)})
-		g.action(15)
+		plantFoods := []food{{120, 1, 28, 0, 4, 0}, {80, 3, 10, 0, 5, 0}, {320, 4, 72, 1, 8, 0}, {60, 2, 8, 1, 2, .35}}
+		g.foods = append(g.foods, plantFoods[i])
+		g.action(15, 0, 2, 0)
 	}
 	for i := 0; i < s.hunts && len(g.animals) > 0 && !g.dead(); i++ {
 		g.move(g.animals[0])
 		g.animals = g.animals[1:]
-		g.action(60)
+		g.action(60, 2, 6, 2)
 		if g.rng.Float64() < .5 {
-			g.foods = append(g.foods, food{calories: 600})
+			g.foods = append(g.foods, food{calories: 600, protein: 45, fat: 20})
 		}
 	}
 	if !s.fishFirst && !g.dead() {
@@ -100,8 +105,8 @@ func (g *run) move(target point) {
 		hours = 1
 	}
 	for i := 0; i < hours && !g.dead(); i++ {
-		g.action(35)
-		g.tick()
+		g.action(35, 1, 5, 1)
+		g.advanceHour()
 	}
 	g.position = target
 }
@@ -111,14 +116,14 @@ func (g *run) fish() {
 		return
 	}
 	g.move(point{320, 70})
-	g.action(35)
+	g.action(35, 1, 5, 1)
 	if g.rng.Float64() < .55 {
-		g.foods = append(g.foods, food{calories: 500})
+		g.foods = append(g.foods, food{calories: 500, protein: 35, fat: 28})
 	}
-	g.tick()
+	g.advanceHour()
 }
 
-func (g *run) action(calories int) {
+func (g *run) action(calories, protein, carbs, fat int) {
 	if g.calories < calories {
 		g.hunger--
 	}
@@ -126,10 +131,22 @@ func (g *run) action(calories int) {
 	if g.calories < 0 {
 		g.calories = 0
 	}
+	g.protein -= protein
+	if g.protein < 0 {
+		g.protein = 0
+	}
+	g.carbs -= carbs
+	if g.carbs < 0 {
+		g.carbs = 0
+	}
+	g.fat -= fat
+	if g.fat < 0 {
+		g.fat = 0
+	}
 }
 
 func (g *run) tick() {
-	if g.hunger <= 35 && len(g.foods) > 0 {
+	if g.hourTotalCount%4 == 0 && g.hunger <= 35 && len(g.foods) > 0 {
 		best := 0
 		for i := range g.foods {
 			if g.foods[i].calories > g.foods[best].calories {
@@ -138,40 +155,51 @@ func (g *run) tick() {
 		}
 		meal := g.foods[best]
 		g.foods = append(g.foods[:best], g.foods[best+1:]...)
-		if g.rng.Intn(100) >= meal.risk {
+		if g.rng.Float64() >= meal.risk {
 			g.hunger += meal.calories / 20
 			if g.hunger > 100 {
 				g.hunger = 100
 			}
 			g.calories += meal.calories
+			g.protein += meal.protein
+			g.carbs += meal.carbs
+			g.fat += meal.fat
 		} else {
 			g.hunger -= 8
 		}
 	}
-	g.hunger--
+	if g.hourTotalCount%4 == 0 {
+		g.hunger--
+	}
 	if g.fire {
-		g.fuelHours++
-		if g.fuelHours >= 4 {
-			g.fuelHours = 0
+		g.fuelQuarters++
+		if g.fuelQuarters >= 16 {
+			g.fuelQuarters = 0
 			if g.wood > 0 {
 				g.wood--
 			} else {
 				g.fire = false
 			}
 		}
-		if g.fire {
+		if g.fire && g.hourTotalCount%4 == 0 {
 			g.warmth += 2
 		}
-	} else {
+	} else if g.hourTotalCount%4 == 0 {
 		g.warmth--
 	}
-	if g.rng.Intn(3) == 1 {
+	if g.hourTotalCount%4 == 0 && g.rng.Intn(3) == 1 {
 		g.weather = 1
 	}
-	if g.weather == 1 && !g.shelter {
+	if g.hourTotalCount%4 == 0 && g.weather == 1 && !g.shelter {
 		g.warmth -= 2
 	}
 	g.hourTotalCount++
+}
+
+func (g *run) advanceHour() {
+	for i := 0; i < 4 && !g.dead(); i++ {
+		g.tick()
+	}
 }
 
 func (g *run) dead() bool     { return g.hunger <= 0 || g.warmth <= 0 }
