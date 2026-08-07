@@ -14,7 +14,7 @@ import (
 )
 
 const tile = 32
-const version = "v0.6.4"
+const version = "v0.6.5"
 
 type Food struct {
 	name                                 string
@@ -37,7 +37,7 @@ type Game struct {
 	day                        int
 	hour, tickTimer, moveTimer, fireBurnHours float64
 	hunger, warmth, wood       int
-	shelter, fire              bool
+	shelter, fire              bool`r`n	fireX, fireY, shelterX, shelterY float64
 	weather, message           string
 	x, y                       float64
 	nodes                      []Node
@@ -109,14 +109,14 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyQ) {
 		g.interact()
 	}
-	if inpututil.IsKeyJustPressed(ebiten.Key1) && g.near("camp") && !g.fire && g.wood >= 2 {
+	if inpututil.IsKeyJustPressed(ebiten.Key1) && !g.fire && g.wood >= 2 {
 		g.expend(30, 0, 5, 1)
 		g.wood -= 2
 		g.fire = true
 		g.log("fire", "lit fire at camp")
 		g.message = "The fire catches. Warmth returns."
 	}
-	if inpututil.IsKeyJustPressed(ebiten.Key2) && g.near("camp") && !g.shelter && g.wood >= 6 {
+	if inpututil.IsKeyJustPressed(ebiten.Key2) && !g.shelter && g.wood >= 6 {
 		g.expend(60, 0, 8, 2)
 		g.wood -= 6
 		g.shelter = true
@@ -453,10 +453,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 	if g.shelter {
-		ebitenutil.DrawRect(screen, 230, 205, 62, 38, color.RGBA{91, 57, 43, 255})
+		ebitenutil.DrawRect(screen, g.shelterX-31, g.shelterY-19, 62, 38, color.RGBA{91, 57, 43, 255})
 	}
 	if g.fire {
-		ebitenutil.DrawRect(screen, 247, 226, 28, 14, color.RGBA{235, 126, 43, 255})
+		ebitenutil.DrawRect(screen, g.fireX-14, g.fireY-7, 28, 14, color.RGBA{235, 126, 43, 255})
 	}
 	ebitenutil.DrawRect(screen, g.x-8, g.y-8, 16, 16, color.RGBA{231, 194, 142, 255})
 	ebitenutil.DrawRect(screen, g.x-5, g.y-13, 10, 7, color.RGBA{85, 52, 36, 255})
@@ -467,8 +467,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	text.Draw(screen, "WASD / ARROWS move", basicfont.Face7x13, 32, 420, color.White)
 	text.Draw(screen, interactionText, basicfont.Face7x13, 190, 420, interactionColor)
 	text.Draw(screen, "ESC restart", basicfont.Face7x13, 300, 420, color.White)
-	text.Draw(screen, "1 fire", basicfont.Face7x13, 32, 442, g.actionColor(g.near("camp") && !g.fire && g.wood >= 2))
-	text.Draw(screen, "2 shelter", basicfont.Face7x13, 88, 442, g.actionColor(g.near("camp") && !g.shelter && g.wood >= 6))
+	text.Draw(screen, "1 fire", basicfont.Face7x13, 32, 442, g.actionColor(!g.fire && g.wood >= 2))
+	text.Draw(screen, "2 shelter", basicfont.Face7x13, 88, 442, g.actionColor(!g.shelter && g.wood >= 6))
 	text.Draw(screen, "3 empty", basicfont.Face7x13, 160, 442, color.RGBA{150, 160, 155, 255})
 	text.Draw(screen, "4 empty", basicfont.Face7x13, 220, 442, color.RGBA{150, 160, 155, 255})
 	text.Draw(screen, "5 empty", basicfont.Face7x13, 280, 442, color.RGBA{150, 160, 155, 255})
@@ -501,6 +501,7 @@ func main() {
 		panic(err)
 	}
 }
+
 
 
 
