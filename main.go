@@ -14,8 +14,11 @@ import (
 )
 
 const tile = 32
+const mapCols = 18
+const mapRows = 10
+const waterTileCount = 18
 const maxWood = 20
-const version = "v0.10.2"
+const version = "v0.11.0"
 
 type Food struct {
 	name                                 string
@@ -71,6 +74,7 @@ type Game struct {
 	replayFrames                              []ReplayFrame
 	replaying                                 bool
 	replayIndex                               int
+	water                                     [mapCols][mapRows]bool
 }
 
 func NewGame() *Game {
@@ -79,8 +83,52 @@ func NewGame() *Game {
 		{110, 120, "wood", false, Food{}}, {170, 260, "wood", false, Food{}}, {500, 150, "wood", false, Food{}}, {535, 255, "wood", false, Food{}}, {95, 305, "wood", false, Food{}}, {210, 210, "wood", false, Food{}}, {210, 285, "wood", false, Food{}}, {315, 210, "wood", false, Food{}}, {315, 285, "wood", false, Food{}}, {300, 300, "wood", false, Food{}},
 		{450, 285, "plant", false, Food{"shore berries", 120, 1, 28, 0, 4, 0}}, {145, 185, "plant", false, Food{"wild greens", 80, 3, 10, 0, 5, 0}}, {330, 125, "plant", false, Food{"edible root", 320, 4, 72, 1, 8, 0}}, {470, 230, "plant", false, Food{"questionable mushroom", 60, 2, 8, 1, 2, .35}}, {260, 245, "camp", false, Food{}},
 	}, animals: []Animal{{390, 120, .5, .2, true, 1}, {520, 300, -.3, .4, true, 2}, {210, 170, .2, -.4, true, 3}}, scores: loadScores()}
+	g.generateTerrain()
 	startLeaderboardSync(g)
 	return g
+}
+
+func (g *Game) generateTerrain() {
+	protected := make(map[[2]int]bool)
+	protect := func(x, y float64) {
+		col, row, ok := g.cellForPixel(x, y)
+		if ok {
+			protected[[2]int{col, row}] = true
+		}
+	}
+	protect(g.x, g.y)
+	for _, n := range g.nodes {
+		protect(float64(n.x), float64(n.y))
+	}
+	for _, a := range g.animals {
+		protect(a.x, a.y)
+	}
+	placed := 0
+	for _, index := range g.rng.Perm(mapCols * mapRows) {
+		if placed >= waterTileCount {
+			break
+		}
+		cell := [2]int{index % mapCols, index / mapCols}
+		if protected[cell] {
+			continue
+		}
+		g.water[cell[0]][cell[1]] = true
+		placed++
+	}
+}
+
+func (g *Game) cellForPixel(x, y float64) (int, int, bool) {
+	col := int((x - 32) / tile)
+	row := int((y - 48) / tile)
+	if col < 0 || col >= mapCols || row < 0 || row >= mapRows {
+		return 0, 0, false
+	}
+	return col, row, true
+}
+
+func (g *Game) isWaterAt(x, y float64) bool {
+	col, row, ok := g.cellForPixel(x, y)
+	return ok && g.water[col][row]
 }
 
 func (g *Game) Update() error {
@@ -112,8 +160,10 @@ func (g *Game) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyDown) {
 		dy++
 	}
-	g.x += dx * 2.2
-	g.y += dy * 2.2
+	nextX, nextY := g.x+dx*2.2, g.y+dy*2.2
+	if !g.isWaterAt(nextX, nextY) {
+		g.x, g.y = nextX, nextY
+	}
 	if g.x < 48 {
 		g.x = 48
 	}
@@ -225,8 +275,13 @@ func (g *Game) updateAnimals() {
 		if !a.active {
 			continue
 		}
-		a.x += a.vx
-		a.y += a.vy
+		nextX, nextY := a.x+a.vx, a.y+a.vy
+		if g.isWaterAt(nextX, nextY) {
+			a.vx *= -1
+			a.vy *= -1
+		} else {
+			a.x, a.y = nextX, nextY
+		}
 		a.turnIn -= 1.0 / 60.0
 		if a.x < 70 || a.x > 570 {
 			a.vx *= -1
@@ -340,7 +395,21 @@ func (g *Game) near(kind string) bool {
 	}
 	return false
 }
-func (g *Game) nearWater() bool { return g.y < 88 || g.y > 335 }
+func (g *Game) nearWater() bool {
+	col, row, ok := g.cellForPixel(g.x, g.y)
+	if !ok {
+		return false
+	}
+	for dx := -1; dx <= 1; dx++ {
+		for dy := -1; dy <= 1; dy++ {
+			checkCol, checkRow := col+dx, row+dy
+			if checkCol >= 0 && checkCol < mapCols && checkRow >= 0 && checkRow < mapRows && g.water[checkCol][checkRow] {
+				return true
+			}
+		}
+	}
+	return false
+}
 func (g *Game) canGather() bool {
 	for _, n := range g.nodes {
 		if n.used || abs(float64(n.x)-g.x) >= 42 || abs(float64(n.y)-g.y) >= 42 {
@@ -572,8 +641,13 @@ func (g *Game) runHoursFloat() float64 { return float64(g.day-1)*24 + g.hour }
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{22, 31, 35, 255})
 	ebitenutil.DrawRect(screen, 32, 48, 576, 320, color.RGBA{53, 91, 72, 255})
-	for y := 64; y < 368; y += tile {
-		for x := 32; x < 608; x += tile {
+	for row := 0; row < mapRows; row++ {
+		for col := 0; col < mapCols; col++ {
+			x, y := 32+col*tile, 48+row*tile
+			if g.water[col][row] {
+				ebitenutil.DrawRect(screen, float64(x), float64(y), tile, tile, color.RGBA{52, 112, 143, 255})
+				continue
+			}
 			c := color.RGBA{58, 98, 73, 255}
 			if (x/tile+y/tile)%3 == 0 {
 				c = color.RGBA{61, 103, 76, 255}
@@ -581,8 +655,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			ebitenutil.DrawRect(screen, float64(x), float64(y), tile-1, tile-1, c)
 		}
 	}
-	ebitenutil.DrawRect(screen, 32, 48, 576, 16, color.RGBA{72, 126, 143, 255})
-	ebitenutil.DrawRect(screen, 32, 352, 576, 16, color.RGBA{72, 126, 143, 255})
 	if sun, visible := g.sunPosition(); visible {
 		start := int(sun) - 4
 		for offset := 0; offset < 10; offset++ {
