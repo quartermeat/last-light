@@ -2,4 +2,4 @@
 
 package main
 
-func saveRunLog([]LogEvent, int, string) {}
+func saveRunLog([]LogEvent, int, string, []ReplayFrame) {}

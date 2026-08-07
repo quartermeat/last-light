@@ -15,7 +15,7 @@ import (
 
 const tile = 32
 const maxWood = 20
-const version = "v0.9.0"
+const version = "v0.10.0"
 
 type Food struct {
 	name                                 string
@@ -33,6 +33,20 @@ type Animal struct {
 	x, y, vx, vy float64
 	active       bool
 	turnIn       float64
+}
+type ReplayFrame struct {
+	Hour     float64 `json:"hour"`
+	X        float64 `json:"x"`
+	Y        float64 `json:"y"`
+	Hunger   int     `json:"hunger"`
+	Warmth   int     `json:"warmth"`
+	Wood     int     `json:"wood"`
+	Fire     bool    `json:"fire"`
+	Shelter  bool    `json:"shelter"`
+	FireX    float64 `json:"fire_x"`
+	FireY    float64 `json:"fire_y"`
+	ShelterX float64 `json:"shelter_x"`
+	ShelterY float64 `json:"shelter_y"`
 }
 type Game struct {
 	day                                       int
@@ -54,14 +68,19 @@ type Game struct {
 	submittedRank                             int
 	dead                                      bool
 	events                                    []LogEvent
+	replayFrames                              []ReplayFrame
+	replaying                                 bool
+	replayIndex                               int
 }
 
 func NewGame() *Game {
 	berries := Food{"shore berries", 120, 1, 28, 0, 4, 0}
-	return &Game{day: 1, warmth: 70, hunger: 75, wood: 3, weather: "clear", x: 320, y: 250, rng: rand.New(rand.NewSource(time.Now().UnixNano())), message: "Explore the island. Q interacts with whatever is closest.", foods: []Food{berries, berries}, nodes: []Node{
+	g := &Game{day: 1, warmth: 70, hunger: 75, wood: 3, weather: "clear", x: 320, y: 250, rng: rand.New(rand.NewSource(time.Now().UnixNano())), message: "Explore the island. Q interacts with whatever is closest.", foods: []Food{berries, berries}, nodes: []Node{
 		{110, 120, "wood", false, Food{}}, {170, 260, "wood", false, Food{}}, {500, 150, "wood", false, Food{}}, {535, 255, "wood", false, Food{}}, {95, 305, "wood", false, Food{}}, {210, 210, "wood", false, Food{}}, {210, 285, "wood", false, Food{}}, {315, 210, "wood", false, Food{}}, {315, 285, "wood", false, Food{}}, {300, 300, "wood", false, Food{}},
 		{450, 285, "plant", false, Food{"shore berries", 120, 1, 28, 0, 4, 0}}, {145, 185, "plant", false, Food{"wild greens", 80, 3, 10, 0, 5, 0}}, {330, 125, "plant", false, Food{"edible root", 320, 4, 72, 1, 8, 0}}, {470, 230, "plant", false, Food{"questionable mushroom", 60, 2, 8, 1, 2, .35}}, {260, 245, "camp", false, Food{}},
 	}, animals: []Animal{{390, 120, .5, .2, true, 1}, {520, 300, -.3, .4, true, 2}, {210, 170, .2, -.4, true, 3}}, scores: loadScores()}
+	startLeaderboardSync(g)
+	return g
 }
 
 func (g *Game) Update() error {
@@ -69,7 +88,12 @@ func (g *Game) Update() error {
 		*g = *NewGame()
 		return nil
 	}
+	if g.replaying {
+		g.advanceReplay()
+		return nil
+	}
 	if g.dead {
+		g.selectReplay()
 		return nil
 	}
 	if len(g.events) == 0 {
@@ -142,6 +166,58 @@ func (g *Game) Update() error {
 		g.tick()
 	}
 	return nil
+}
+
+func (g *Game) selectReplay() {
+	keys := []ebiten.Key{ebiten.Key1, ebiten.Key2, ebiten.Key3, ebiten.Key4, ebiten.Key5, ebiten.Key6}
+	for i, key := range keys {
+		if !inpututil.IsKeyJustPressed(key) {
+			continue
+		}
+		var score Score
+		if g.submittedRank > 6 && i == 5 {
+			score = g.submittedScore
+		} else if i < len(g.scores) && i < 6 {
+			score = g.scores[i]
+		} else {
+			return
+		}
+		if len(score.Replay) == 0 {
+			g.message = "That run predates replay capture. New runs can be replayed."
+			return
+		}
+		g.replaying = true
+		g.replayIndex = 0
+		g.message = fmt.Sprintf("Replaying %s at 8x speed. ESC to stop.", score.Name)
+		g.applyReplayFrame(score.Replay[0])
+		g.replayFrames = score.Replay
+		return
+	}
+}
+
+func (g *Game) advanceReplay() {
+	if g.replayIndex >= len(g.replayFrames) {
+		g.replaying = false
+		g.dead = true
+		g.message = "Replay finished. Press 1-6 to replay another run, or ESC to restart."
+		return
+	}
+	end := g.replayIndex + 8
+	if end > len(g.replayFrames) {
+		end = len(g.replayFrames)
+	}
+	g.applyReplayFrame(g.replayFrames[end-1])
+	g.replayIndex = end
+}
+
+func (g *Game) applyReplayFrame(frame ReplayFrame) {
+	g.day = int(frame.Hour/24) + 1
+	g.hour = frame.Hour - float64((g.day-1)*24)
+	g.x, g.y = frame.X, frame.Y
+	g.hunger, g.warmth, g.wood = frame.Hunger, frame.Warmth, frame.Wood
+	g.fire, g.shelter = frame.Fire, frame.Shelter
+	g.fireX, g.fireY = frame.FireX, frame.FireY
+	g.shelterX, g.shelterY = frame.ShelterX, frame.ShelterY
 }
 func (g *Game) updateAnimals() {
 	for i := range g.animals {
@@ -406,12 +482,19 @@ func (g *Game) finishRun() {
 	name := "RUN"
 	if qualifiesScore(g.scores, hours) {
 		name = getInitials()
-		g.submittedScore = Score{Name: name, Hours: hours}
+		g.submittedScore = Score{Name: name, Hours: hours, Replay: append([]ReplayFrame(nil), g.replayFrames...)}
 		g.scores = recordScore(g.scores, hours, name)
+		for i := range g.scores {
+			if g.scores[i].Name == g.submittedScore.Name && g.scores[i].Hours == g.submittedScore.Hours {
+				g.scores[i].Replay = g.submittedScore.Replay
+				break
+			}
+		}
+		saveScores(g.scores)
 		g.submittedRank = scoreRank(g.scores, g.submittedScore)
 	}
 	g.log("death", fmt.Sprintf("run ended after %d hours", hours))
-	saveRunLog(g.events, hours, name)
+	saveRunLog(g.events, hours, name, g.replayFrames)
 	g.message = "You did not make it. Press Escape to try again."
 }
 func (g *Game) tick() {
@@ -467,7 +550,23 @@ func (g *Game) tick() {
 	if g.warmth > 100 {
 		g.warmth = 100
 	}
+	g.recordReplayFrame()
 }
+
+func (g *Game) recordReplayFrame() {
+	if len(g.replayFrames) >= 4000 {
+		return
+	}
+	g.replayFrames = append(g.replayFrames, ReplayFrame{
+		Hour: g.runHoursFloat(), X: g.x, Y: g.y,
+		Hunger: g.hunger, Warmth: g.warmth, Wood: g.wood,
+		Fire: g.fire, Shelter: g.shelter,
+		FireX: g.fireX, FireY: g.fireY,
+		ShelterX: g.shelterX, ShelterY: g.shelterY,
+	})
+}
+
+func (g *Game) runHoursFloat() float64 { return float64(g.day-1)*24 + g.hour }
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{22, 31, 35, 255})
@@ -573,15 +672,15 @@ func ebitengineDrawLeaderboard(screen *ebiten.Image, g *Game) {
 	for i := 0; i < visibleScores; i++ {
 		score := g.scores[i]
 		rowColor := color.RGBA{210, 225, 215, 255}
-		if g.submittedRank > 0 && score == g.submittedScore {
+		if g.submittedRank > 0 && score.Name == g.submittedScore.Name && score.Hours == g.submittedScore.Hours {
 			rowColor = color.RGBA{255, 220, 100, 255}
 		}
-		text.Draw(screen, fmt.Sprintf("%d. %s  %d hours", i+1, score.Name, score.Hours), basicfont.Face7x13, 225, 195+i*22, rowColor)
+		text.Draw(screen, fmt.Sprintf("[%d] %d. %s  %d hours", i+1, i+1, score.Name, score.Hours), basicfont.Face7x13, 220, 195+i*22, rowColor)
 	}
 	if g.submittedRank > 6 {
-		text.Draw(screen, fmt.Sprintf("%d. %s  %d hours  (YOUR RUN)", g.submittedRank, g.submittedScore.Name, g.submittedScore.Hours), basicfont.Face7x13, 225, 195+5*22, color.RGBA{255, 220, 100, 255})
+		text.Draw(screen, fmt.Sprintf("[6] %d. %s  %d hours  (YOUR RUN)", g.submittedRank, g.submittedScore.Name, g.submittedScore.Hours), basicfont.Face7x13, 220, 195+5*22, color.RGBA{255, 220, 100, 255})
 	}
-	text.Draw(screen, "ESC to start a new run", basicfont.Face7x13, 235, 330, color.RGBA{240, 220, 160, 255})
+	text.Draw(screen, "1-6: replay visible run   ESC: new run", basicfont.Face7x13, 205, 330, color.RGBA{240, 220, 160, 255})
 }
 func (g *Game) Layout(_, _ int) (int, int) { return 640, 480 }
 func main() {

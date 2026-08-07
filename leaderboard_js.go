@@ -31,6 +31,40 @@ func saveScores(scores []Score) {
 	data, _ := json.Marshal(scores)
 	js.Global().Get("localStorage").Call("setItem", scoreStorageKey(), string(data))
 }
+func startLeaderboardSync(g *Game) {
+	responseJSON := js.FuncOf(func(_ js.Value, args []js.Value) interface{} {
+		if len(args) == 0 {
+			return nil
+		}
+		return args[0].Call("json")
+	})
+	applyScores := js.FuncOf(func(_ js.Value, args []js.Value) interface{} {
+		defer responseJSON.Release()
+		if len(args) == 0 {
+			return nil
+		}
+		var scores []Score
+		if json.Unmarshal([]byte(args[0].String()), &scores) == nil {
+			g.scores = scores
+			if g.submittedScore.Name == "" {
+				for _, score := range scores {
+					if score.Name == "NEO" {
+						g.submittedScore = score
+						break
+					}
+				}
+			}
+			if g.submittedScore.Name != "" {
+				g.submittedRank = scoreRank(g.scores, g.submittedScore)
+			}
+			saveScores(scores)
+		}
+		return nil
+	})
+	promise := js.Global().Call("fetch", "/api/leaderboard")
+	promise = promise.Call("then", responseJSON)
+	promise.Call("then", applyScores)
+}
 func getInitials() string {
 	value := js.Global().Call("prompt", "NEW LEADERBOARD SCORE\nEnter 3 characters:", "YOU")
 	if value.IsNull() || value.IsUndefined() {

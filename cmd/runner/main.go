@@ -1,16 +1,29 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"math"
 	"math/rand"
+	"net/http"
 )
 
 type point struct{ x, y float64 }
 type food struct {
 	calories, protein, carbs, fat, fiber int
 	risk                                 float64
+}
+type replayFrame struct {
+	Hour    float64 `json:"hour"`
+	X       float64 `json:"x"`
+	Y       float64 `json:"y"`
+	Hunger  int     `json:"hunger"`
+	Warmth  int     `json:"warmth"`
+	Wood    int     `json:"wood"`
+	Fire    bool    `json:"fire"`
+	Shelter bool    `json:"shelter"`
 }
 type strategy struct {
 	woodTarget int
@@ -29,6 +42,7 @@ type run struct {
 	woods, plants       []point
 	animals             []point
 	foods               []food
+	replay              []replayFrame
 	rng                 *rand.Rand
 	weather             int
 }
@@ -37,24 +51,35 @@ func main() {
 	trials := flag.Int("trials", 10000, "number of strategies to try")
 	seed := flag.Int64("seed", 1, "random seed")
 	allowFishing := flag.Bool("fishing", true, "allow fishing during simulated runs")
+	submit := flag.Bool("submit", false, "submit the best run to the leaderboard as NEO")
+	address := flag.String("address", "http://127.0.0.1:8080", "Last Light server URL")
 	flag.Parse()
 
 	bestHours := -1
 	best := strategy{}
+	var bestRun *run
 	master := rand.New(rand.NewSource(*seed))
 	for i := 0; i < *trials; i++ {
 		s := strategy{woodTarget: 8 + master.Intn(6), plants: master.Intn(5), hunts: master.Intn(4), fishFirst: master.Intn(2) == 0}
-		hours := simulate(s, master.Int63(), *allowFishing)
+		candidate := simulate(s, master.Int63(), *allowFishing)
+		hours := candidate.hourTotal()
 		if hours > bestHours {
-			bestHours, best = hours, s
+			bestHours, best, bestRun = hours, s, candidate
 		}
 	}
 
 	fmt.Printf("best survival: %d in-game hours\n", bestHours)
 	fmt.Printf("strategy: wood target=%d, plants=%d, hunts=%d, fish-first=%t\n", best.woodTarget, best.plants, best.hunts, best.fishFirst)
+	if *submit {
+		if err := submitRun(*address, bestRun); err != nil {
+			fmt.Printf("submission failed: %v\n", err)
+			return
+		}
+		fmt.Println("submitted to leaderboard as NEO")
+	}
 }
 
-func simulate(s strategy, seed int64, allowFishing bool) int {
+func simulate(s strategy, seed int64, allowFishing bool) *run {
 	g := &run{
 		hunger: 75, warmth: 70, wood: 3, position: point{320, 250},
 		rng:     rand.New(rand.NewSource(seed)),
@@ -97,7 +122,7 @@ func simulate(s strategy, seed int64, allowFishing bool) int {
 	for allowFishing && !g.dead() && g.hourTotal() < 10000 {
 		g.fish()
 	}
-	return g.hourTotal()
+	return g
 }
 
 func (g *run) move(target point) {
@@ -195,6 +220,14 @@ func (g *run) tick() {
 		g.warmth -= 2
 	}
 	g.hourTotalCount++
+	if len(g.replay) < 4000 {
+		g.replay = append(g.replay, replayFrame{
+			Hour: float64(g.hourTotalCount) / 4,
+			X:    g.position.x, Y: g.position.y,
+			Hunger: g.hunger, Warmth: g.warmth, Wood: g.wood,
+			Fire: g.fire, Shelter: g.shelter,
+		})
+	}
 }
 
 func (g *run) advanceHour() {
@@ -204,4 +237,24 @@ func (g *run) advanceHour() {
 }
 
 func (g *run) dead() bool     { return g.hunger <= 0 || g.warmth <= 0 }
-func (g *run) hourTotal() int { return g.hourTotalCount }
+func (g *run) hourTotal() int { return g.hourTotalCount / 4 }
+
+func submitRun(address string, g *run) error {
+	payload, err := json.Marshal(struct {
+		Name   string        `json:"name"`
+		Hours  int           `json:"hours"`
+		Replay []replayFrame `json:"replay"`
+	}{Name: "NEO", Hours: g.hourTotal(), Replay: g.replay})
+	if err != nil {
+		return err
+	}
+	response, err := http.Post(address+"/api/runs", "application/json", bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return fmt.Errorf("server returned %s", response.Status)
+	}
+	return nil
+}

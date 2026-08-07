@@ -3,8 +3,9 @@ package main
 import "sort"
 
 type Score struct {
-	Name  string `json:"name"`
-	Hours int    `json:"hours"`
+	Name   string        `json:"name"`
+	Hours  int           `json:"hours"`
+	Replay []ReplayFrame `json:"replay,omitempty"`
 }
 
 func qualifiesScore(scores []Score, hours int) bool {
@@ -25,7 +26,7 @@ func recordScore(scores []Score, score int, name string) []Score {
 
 func scoreRank(scores []Score, target Score) int {
 	for i, score := range scores {
-		if score == target {
+		if score.Name == target.Name && score.Hours == target.Hours {
 			return i + 1
 		}
 	}

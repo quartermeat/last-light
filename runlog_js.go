@@ -13,12 +13,13 @@ type storedRun struct {
 }
 
 type runSubmission struct {
-	Name   string     `json:"name"`
-	Hours  int        `json:"hours"`
-	Events []LogEvent `json:"events"`
+	Name   string        `json:"name"`
+	Hours  int           `json:"hours"`
+	Events []LogEvent    `json:"events"`
+	Replay []ReplayFrame `json:"replay"`
 }
 
-func saveRunLog(events []LogEvent, hours int, name string) {
+func saveRunLog(events []LogEvent, hours int, name string, replay []ReplayFrame) {
 	storage := js.Global().Get("localStorage")
 	var history []storedRun
 	value := storage.Call("getItem", "last-light-run-history")
@@ -33,7 +34,7 @@ func saveRunLog(events []LogEvent, hours int, name string) {
 	storage.Call("setItem", "last-light-run-history", string(data))
 	latest, _ := json.Marshal(events)
 	storage.Call("setItem", "last-light-latest-run-log", string(latest))
-	payload, _ := json.Marshal(runSubmission{Name: name, Hours: hours, Events: events})
+	payload, _ := json.Marshal(runSubmission{Name: name, Hours: hours, Events: events, Replay: replay})
 	options := map[string]interface{}{
 		"method":  "POST",
 		"headers": map[string]interface{}{"Content-Type": "application/json"},

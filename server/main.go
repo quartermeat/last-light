@@ -20,15 +20,17 @@ type Event struct {
 	Details string  `json:"details"`
 }
 type Run struct {
-	Name   string  `json:"name"`
-	Hours  int     `json:"hours"`
-	Events []Event `json:"events"`
+	Name   string          `json:"name"`
+	Hours  int             `json:"hours"`
+	Events []Event         `json:"events"`
+	Replay json.RawMessage `json:"replay"`
 }
 type Entry struct {
-	Rank      int    `json:"rank"`
-	Name      string `json:"name"`
-	Hours     int    `json:"hours"`
-	CreatedAt string `json:"created_at"`
+	Rank      int             `json:"rank"`
+	Name      string          `json:"name"`
+	Hours     int             `json:"hours"`
+	CreatedAt string          `json:"created_at"`
+	Replay    json.RawMessage `json:"replay,omitempty"`
 }
 
 var initials = regexp.MustCompile(`^[A-Z0-9]{3}$`)
@@ -43,7 +45,10 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	if _, err = db.Exec(`PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS runs (id INTEGER PRIMARY KEY, name TEXT NOT NULL, hours INTEGER NOT NULL, created_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS events (run_id INTEGER NOT NULL, hour REAL NOT NULL, kind TEXT NOT NULL, details TEXT NOT NULL, FOREIGN KEY(run_id) REFERENCES runs(id)); CREATE INDEX IF NOT EXISTS runs_hours_idx ON runs(hours DESC); CREATE INDEX IF NOT EXISTS events_run_idx ON events(run_id);`); err != nil {
+	if _, err = db.Exec(`PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS runs (id INTEGER PRIMARY KEY, name TEXT NOT NULL, hours INTEGER NOT NULL, created_at TEXT NOT NULL, replay_json TEXT NOT NULL DEFAULT '[]'); CREATE TABLE IF NOT EXISTS events (run_id INTEGER NOT NULL, hour REAL NOT NULL, kind TEXT NOT NULL, details TEXT NOT NULL, FOREIGN KEY(run_id) REFERENCES runs(id)); CREATE INDEX IF NOT EXISTS runs_hours_idx ON runs(hours DESC); CREATE INDEX IF NOT EXISTS events_run_idx ON events(run_id);`); err != nil {
+		log.Fatal(err)
+	}
+	if _, err = db.Exec(`ALTER TABLE runs ADD COLUMN replay_json TEXT NOT NULL DEFAULT '[]'`); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
 		log.Fatal(err)
 	}
 
@@ -73,7 +78,7 @@ func main() {
 
 func leaderboardHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		rows, err := db.Query(`SELECT name, hours, created_at FROM runs ORDER BY hours DESC, id ASC LIMIT 100`)
+		rows, err := db.Query(`SELECT name, hours, created_at, replay_json FROM runs ORDER BY hours DESC, id ASC LIMIT 100`)
 		if err != nil {
 			http.Error(w, "database error", 500)
 			return
@@ -83,10 +88,12 @@ func leaderboardHandler(db *sql.DB) http.HandlerFunc {
 		rank := 1
 		for rows.Next() {
 			var e Entry
-			if err := rows.Scan(&e.Name, &e.Hours, &e.CreatedAt); err != nil {
+			var replay string
+			if err := rows.Scan(&e.Name, &e.Hours, &e.CreatedAt, &replay); err != nil {
 				http.Error(w, "database error", 500)
 				return
 			}
+			e.Replay = json.RawMessage(replay)
 			e.Rank = rank
 			rank++
 			entries = append(entries, e)
@@ -116,13 +123,20 @@ func runHandler(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "too many events", 400)
 			return
 		}
+		if len(run.Replay) == 0 {
+			run.Replay = json.RawMessage("[]")
+		}
+		if !json.Valid(run.Replay) {
+			http.Error(w, "invalid replay", 400)
+			return
+		}
 		tx, err := db.Begin()
 		if err != nil {
 			http.Error(w, "database error", 500)
 			return
 		}
 		defer tx.Rollback()
-		result, err := tx.Exec(`INSERT INTO runs(name, hours, created_at) VALUES(?, ?, ?)`, run.Name, run.Hours, time.Now().UTC().Format(time.RFC3339))
+		result, err := tx.Exec(`INSERT INTO runs(name, hours, created_at, replay_json) VALUES(?, ?, ?, ?)`, run.Name, run.Hours, time.Now().UTC().Format(time.RFC3339), string(run.Replay))
 		if err != nil {
 			http.Error(w, "database error", 500)
 			return

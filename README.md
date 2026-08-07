@@ -34,15 +34,17 @@ Nutrition is simulated behind the scenes: calories, protein, carbohydrates, fat,
 
 ## Leaderboard
 
-The browser build keeps the top 100 survival runs in local browser storage. Qualifying runs use a classic three-character initials entry, and scores are measured in in-game hours. Completed runs also retain structured gameplay logs for later correlation. No account or network service is required. The 15-minute clock starts a fresh leaderboard season.
+The SQLite backend is the leaderboard source of truth. The browser keeps a local cache for startup, then synchronizes the top 100 from `GET /api/leaderboard`. Qualifying runs use a classic three-character initials entry, and scores are measured in in-game hours. Completed runs retain structured gameplay logs and replay snapshots. The 15-minute clock starts a fresh leaderboard season.
 
 ## Strategy runner
 
 Run thousands of headless strategy attempts and print the best survival result:
 
 ```powershell
-go run ./cmd/runner -trials 10000 -seed 1
+go run ./cmd/runner -trials 10000 -seed 1 -address http://127.0.0.1:8080 -submit
 ```
+
+Submitted tester runs use the initials `NEO`. Add `-fishing=false` to measure a no-fishing strategy. On the run-over screen, keys `1` through `6` replay only the visible leaderboard rows at 8x speed.
 
 ## Single-process local run
 
