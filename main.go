@@ -19,7 +19,7 @@ const mapCols = 18
 const mapRows = 10
 const waterTileCount = 18
 const maxWood = 20
-const version = "v0.13.1"
+const version = "v0.13.2"
 
 type Food struct {
 	name                                 string
@@ -776,27 +776,49 @@ func (g *Game) drawFogOverlay(screen *ebiten.Image) {
 		alpha = 205
 	}
 	for y := mapTop; y < mapBottom; y += 4 {
-		distanceY := (y + 2) - g.y
-		if distanceY < 0 {
-			distanceY = -distanceY
+		intervals := make([][2]float64, 0, 2)
+		addLight := func(centerX, centerY, lightRadius float64) {
+			distanceY := (y + 2) - centerY
+			if distanceY < 0 {
+				distanceY = -distanceY
+			}
+			if distanceY >= lightRadius {
+				return
+			}
+			halfWidth := math.Sqrt(lightRadius*lightRadius - distanceY*distanceY)
+			intervals = append(intervals, [2]float64{centerX - halfWidth, centerX + halfWidth})
 		}
-		halfWidth := 0.0
-		if distanceY < radius {
-			halfWidth = math.Sqrt(radius*radius - distanceY*distanceY)
+		addLight(g.x, g.y, radius)
+		if g.fire {
+			addLight(g.fireX, g.fireY, 115)
 		}
-		left := g.x - halfWidth
-		right := g.x + halfWidth
-		if left < mapLeft {
-			left = mapLeft
+		if len(intervals) == 2 && intervals[1][0] < intervals[0][0] {
+			intervals[0], intervals[1] = intervals[1], intervals[0]
 		}
-		if right > mapRight {
-			right = mapRight
+		if len(intervals) == 2 && intervals[1][0] <= intervals[0][1] {
+			if intervals[1][1] > intervals[0][1] {
+				intervals[0][1] = intervals[1][1]
+			}
+			intervals = intervals[:1]
 		}
-		if left > mapLeft {
-			ebitenutil.DrawRect(screen, mapLeft, y, left-mapLeft, 4, color.RGBA{5, 9, 16, alpha})
+		cursor := mapLeft
+		for _, interval := range intervals {
+			left, right := interval[0], interval[1]
+			if left < mapLeft {
+				left = mapLeft
+			}
+			if right > mapRight {
+				right = mapRight
+			}
+			if left > cursor {
+				ebitenutil.DrawRect(screen, cursor, y, left-cursor, 4, color.RGBA{5, 9, 16, alpha})
+			}
+			if right > cursor {
+				cursor = right
+			}
 		}
-		if right < mapRight {
-			ebitenutil.DrawRect(screen, right, y, mapRight-right, 4, color.RGBA{5, 9, 16, alpha})
+		if cursor < mapRight {
+			ebitenutil.DrawRect(screen, cursor, y, mapRight-cursor, 4, color.RGBA{5, 9, 16, alpha})
 		}
 	}
 }
