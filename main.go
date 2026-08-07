@@ -14,7 +14,7 @@ import (
 )
 
 const tile = 32
-const version = "v0.2.1"
+const version = "v0.2.2"
 
 type Food struct {
 	name                                 string
@@ -248,6 +248,18 @@ func (g *Game) canHunt() bool {
 	}
 	return false
 }
+func (g *Game) interactionLabel() (string, color.Color) {
+	if g.canGather() {
+		return "Q gather", g.actionColor(true)
+	}
+	if g.canHunt() {
+		return "Q hunt", g.actionColor(true)
+	}
+	if g.nearWater() {
+		return "Q fish", g.actionColor(true)
+	}
+	return "Q interact", g.actionColor(false)
+}
 func (g *Game) actionColor(available bool) color.Color {
 	if available {
 		return color.RGBA{120, 235, 145, 255}
@@ -402,13 +414,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	text.Draw(screen, fmt.Sprintf("LAST LIGHT   DAY %d   %02d:00   %s", g.day, int(g.hour), g.weather), basicfont.Face7x13, 32, 28, color.White)
 	text.Draw(screen, version, basicfont.Face7x13, 575, 28, color.RGBA{180, 205, 190, 255})
 	text.Draw(screen, fmt.Sprintf("HUNGER %d   WARMTH %d   WOOD %d   FOOD %d", g.hunger, g.warmth, g.wood, len(g.foods)), basicfont.Face7x13, 32, 397, color.White)
+	interactionText, interactionColor := g.interactionLabel()
 	text.Draw(screen, "WASD / ARROWS move", basicfont.Face7x13, 32, 420, color.White)
-	text.Draw(screen, "Q gather", basicfont.Face7x13, 190, 420, g.actionColor(g.canGather()))
+	text.Draw(screen, interactionText, basicfont.Face7x13, 190, 420, interactionColor)
 	text.Draw(screen, "1 fire", basicfont.Face7x13, 260, 420, g.actionColor(g.near("camp") && g.wood >= 2))
 	text.Draw(screen, "2 shelter", basicfont.Face7x13, 315, 420, g.actionColor(g.near("camp") && !g.shelter && g.wood >= 6))
-	text.Draw(screen, "Q fish", basicfont.Face7x13, 32, 442, g.actionColor(g.nearWater()))
-	text.Draw(screen, "Q hunt", basicfont.Face7x13, 90, 442, g.actionColor(g.canHunt()))
-	text.Draw(screen, "ESC restart", basicfont.Face7x13, 155, 442, color.White)
+	text.Draw(screen, "ESC restart", basicfont.Face7x13, 32, 442, color.White)
 	text.Draw(screen, g.message, basicfont.Face7x13, 32, 464, color.RGBA{240, 220, 160, 255})
 }
 func (g *Game) Layout(_, _ int) (int, int) { return 640, 480 }
