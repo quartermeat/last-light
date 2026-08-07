@@ -14,7 +14,7 @@ import (
 )
 
 const tile = 32
-const version = "v0.3.0"
+const version = "v0.3.1"
 
 type Food struct {
 	name                                 string
@@ -407,9 +407,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			ebitenutil.DrawRect(screen, float64(n.x-7), float64(n.y-10), 14, 20, c)
 			ebitenutil.DrawRect(screen, float64(n.x-11), float64(n.y-3), 22, 6, color.RGBA{74, 135, 65, 255})
 		}
-		if n.kind == "camp" {
-			ebitenutil.DrawRect(screen, float64(n.x-16), float64(n.y-10), 32, 20, color.RGBA{93, 59, 43, 255})
-		}
+
 	}
 	for _, a := range g.animals {
 		if a.active {
