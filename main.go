@@ -18,7 +18,7 @@ const mapCols = 18
 const mapRows = 10
 const waterTileCount = 18
 const maxWood = 20
-const version = "v0.11.2"
+const version = "v0.11.3"
 
 type Food struct {
 	name                                 string
@@ -656,19 +656,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 	if sun, visible := g.sunPosition(); visible {
-		start := int(sun) - 4
-		for offset := 0; offset < 10; offset++ {
-			column := start + offset
-			if column < 0 || column >= 18 {
-				continue
-			}
+		for column := 0; column < mapCols; column++ {
 			distance := sun - (float64(column) + 0.5)
 			if distance < 0 {
 				distance = -distance
 			}
 			heat := 5 - int(distance)
-			if heat < 1 {
-				heat = 1
+			if heat < 0 {
+				heat = 0
 			}
 			mask := sunMaskColor(heat)
 			ebitenutil.DrawRect(screen, float64(32+column*tile), 48, tile, 320, mask)
@@ -752,15 +747,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 func sunMaskColor(heat int) color.RGBA {
 	switch heat {
 	case 5:
-		return color.RGBA{255, 232, 38, 175}
+		return color.RGBA{255, 232, 38, 82}
 	case 4:
-		return color.RGBA{255, 222, 44, 140}
+		return color.RGBA{255, 222, 44, 62}
 	case 3:
-		return color.RGBA{255, 212, 52, 105}
+		return color.RGBA{255, 212, 52, 45}
 	case 2:
-		return color.RGBA{255, 202, 66, 70}
+		return color.RGBA{255, 202, 66, 30}
+	case 1:
+		return color.RGBA{255, 194, 78, 18}
 	default:
-		return color.RGBA{255, 190, 86, 35}
+		return color.RGBA{255, 188, 92, 8}
 	}
 }
 
