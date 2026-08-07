@@ -36,6 +36,7 @@ type run struct {
 func main() {
 	trials := flag.Int("trials", 10000, "number of strategies to try")
 	seed := flag.Int64("seed", 1, "random seed")
+	allowFishing := flag.Bool("fishing", true, "allow fishing during simulated runs")
 	flag.Parse()
 
 	bestHours := -1
@@ -43,7 +44,7 @@ func main() {
 	master := rand.New(rand.NewSource(*seed))
 	for i := 0; i < *trials; i++ {
 		s := strategy{woodTarget: 8 + master.Intn(6), plants: master.Intn(5), hunts: master.Intn(4), fishFirst: master.Intn(2) == 0}
-		hours := simulate(s, master.Int63())
+		hours := simulate(s, master.Int63(), *allowFishing)
 		if hours > bestHours {
 			bestHours, best = hours, s
 		}
@@ -53,7 +54,7 @@ func main() {
 	fmt.Printf("strategy: wood target=%d, plants=%d, hunts=%d, fish-first=%t\n", best.woodTarget, best.plants, best.hunts, best.fishFirst)
 }
 
-func simulate(s strategy, seed int64) int {
+func simulate(s strategy, seed int64, allowFishing bool) int {
 	g := &run{
 		hunger: 75, warmth: 70, wood: 3, position: point{320, 250},
 		rng:     rand.New(rand.NewSource(seed)),
@@ -72,7 +73,7 @@ func simulate(s strategy, seed int64) int {
 		g.wood -= 8
 		g.shelter, g.fire = true, true
 	}
-	if s.fishFirst {
+	if allowFishing && s.fishFirst {
 		g.fish()
 	}
 	for i := 0; i < s.plants && len(g.plants) > 0 && !g.dead(); i++ {
@@ -90,10 +91,10 @@ func simulate(s strategy, seed int64) int {
 			g.foods = append(g.foods, food{calories: 600, protein: 45, fat: 20})
 		}
 	}
-	if !s.fishFirst && !g.dead() {
+	if allowFishing && !s.fishFirst && !g.dead() {
 		g.fish()
 	}
-	for !g.dead() && g.hourTotal() < 10000 {
+	for allowFishing && !g.dead() && g.hourTotal() < 10000 {
 		g.fish()
 	}
 	return g.hourTotal()

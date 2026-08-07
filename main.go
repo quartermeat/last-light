@@ -15,7 +15,7 @@ import (
 
 const tile = 32
 const maxWood = 20
-const version = "v0.8.2"
+const version = "v0.9.0"
 
 type Food struct {
 	name                                 string
@@ -308,6 +308,29 @@ func abs(v float64) float64 {
 	}
 	return v
 }
+
+func (g *Game) sunColumn() (int, bool) {
+	if g.hour < 6 || g.hour >= 18 {
+		return 0, false
+	}
+	return int(((g.hour - 6) / 12) * 17), true
+}
+
+func (g *Game) sunHeatAtPlayer() int {
+	sun, visible := g.sunColumn()
+	if !visible {
+		return 0
+	}
+	playerColumn := int((g.x - 32) / tile)
+	distance := sun - playerColumn
+	if distance < 0 {
+		distance = -distance
+	}
+	if distance > 2 {
+		return 0
+	}
+	return 3 - distance
+}
 func (g *Game) expend(calories, protein, carbs, fat int) {
 	if g.nutrition.calories < calories {
 		g.hunger--
@@ -430,6 +453,7 @@ func (g *Game) tick() {
 		if g.weather == "rain" && !g.shelter {
 			g.warmth -= 2
 		}
+		g.warmth += g.sunHeatAtPlayer()
 	}
 	if g.hunger <= 0 || g.warmth <= 0 {
 		g.finishRun()
@@ -459,6 +483,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	ebitenutil.DrawRect(screen, 32, 48, 576, 16, color.RGBA{72, 126, 143, 255})
 	ebitenutil.DrawRect(screen, 32, 352, 576, 16, color.RGBA{72, 126, 143, 255})
+	if sun, visible := g.sunColumn(); visible {
+		for offset := -2; offset <= 2; offset++ {
+			column := sun + offset
+			if column < 0 || column >= 18 {
+				continue
+			}
+			heat := 3 - absInt(offset)
+			alpha := uint8(28 + heat*18)
+			ebitenutil.DrawRect(screen, float64(32+column*tile), 48, tile, 320, color.RGBA{255, 224, 72, alpha})
+		}
+	}
 	for _, n := range g.nodes {
 		if n.used {
 			continue
@@ -516,6 +551,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		ebitengineDrawLeaderboard(screen, g)
 	}
 }
+
+func absInt(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
 func ebitengineDrawLeaderboard(screen *ebiten.Image, g *Game) {
 	ebitenutil.DrawRect(screen, 150, 70, 340, 285, color.RGBA{12, 18, 20, 235})
 	text.Draw(screen, "RUN OVER", basicfont.Face7x13, 285, 105, color.RGBA{245, 220, 150, 255})
