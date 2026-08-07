@@ -15,7 +15,7 @@ import (
 
 const tile = 32
 const maxWood = 20
-const version = "v0.10.1"
+const version = "v0.10.2"
 
 type Food struct {
 	name                                 string
@@ -385,27 +385,28 @@ func abs(v float64) float64 {
 	return v
 }
 
-func (g *Game) sunColumn() (int, bool) {
+func (g *Game) sunPosition() (float64, bool) {
 	if g.hour < 6 || g.hour >= 18 {
 		return 0, false
 	}
-	return int(((g.hour - 6) / 12) * 17), true
+	return ((g.hour - 6) / 12) * 17, true
 }
 
 func (g *Game) sunHeatAtPlayer() int {
-	sun, visible := g.sunColumn()
+	sun, visible := g.sunPosition()
 	if !visible {
 		return 0
 	}
 	playerColumn := int((g.x - 32) / tile)
-	distance := sun - playerColumn
+	distance := sun - (float64(playerColumn) + 0.5)
 	if distance < 0 {
 		distance = -distance
 	}
-	if distance > 2 {
+	heat := 5 - int(distance)
+	if heat < 1 {
 		return 0
 	}
-	return 3 - distance
+	return heat
 }
 func (g *Game) expend(calories, protein, carbs, fat int) {
 	if g.nutrition.calories < calories {
@@ -582,13 +583,21 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	ebitenutil.DrawRect(screen, 32, 48, 576, 16, color.RGBA{72, 126, 143, 255})
 	ebitenutil.DrawRect(screen, 32, 352, 576, 16, color.RGBA{72, 126, 143, 255})
-	if sun, visible := g.sunColumn(); visible {
-		for offset := -2; offset <= 2; offset++ {
-			column := sun + offset
+	if sun, visible := g.sunPosition(); visible {
+		start := int(sun) - 4
+		for offset := 0; offset < 10; offset++ {
+			column := start + offset
 			if column < 0 || column >= 18 {
 				continue
 			}
-			heat := 3 - absInt(offset)
+			distance := sun - (float64(column) + 0.5)
+			if distance < 0 {
+				distance = -distance
+			}
+			heat := 5 - int(distance)
+			if heat < 1 {
+				heat = 1
+			}
 			mask := sunMaskColor(heat)
 			ebitenutil.DrawRect(screen, float64(32+column*tile), 48, tile, 320, mask)
 		}
@@ -651,21 +660,18 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 }
 
-func absInt(v int) int {
-	if v < 0 {
-		return -v
-	}
-	return v
-}
-
 func sunMaskColor(heat int) color.RGBA {
 	switch heat {
+	case 5:
+		return color.RGBA{255, 232, 38, 175}
+	case 4:
+		return color.RGBA{255, 222, 44, 140}
 	case 3:
-		return color.RGBA{255, 232, 38, 150}
+		return color.RGBA{255, 212, 52, 105}
 	case 2:
-		return color.RGBA{255, 214, 54, 100}
+		return color.RGBA{255, 202, 66, 70}
 	default:
-		return color.RGBA{255, 198, 82, 55}
+		return color.RGBA{255, 190, 86, 35}
 	}
 }
 
