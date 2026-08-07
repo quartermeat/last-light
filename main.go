@@ -14,7 +14,7 @@ import (
 )
 
 const tile = 32
-const version = "v0.2.2"
+const version = "v0.2.3"
 
 type Food struct {
 	name                                 string
@@ -417,9 +417,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	interactionText, interactionColor := g.interactionLabel()
 	text.Draw(screen, "WASD / ARROWS move", basicfont.Face7x13, 32, 420, color.White)
 	text.Draw(screen, interactionText, basicfont.Face7x13, 190, 420, interactionColor)
-	text.Draw(screen, "1 fire", basicfont.Face7x13, 260, 420, g.actionColor(g.near("camp") && g.wood >= 2))
-	text.Draw(screen, "2 shelter", basicfont.Face7x13, 315, 420, g.actionColor(g.near("camp") && !g.shelter && g.wood >= 6))
-	text.Draw(screen, "ESC restart", basicfont.Face7x13, 32, 442, color.White)
+	text.Draw(screen, "ESC restart", basicfont.Face7x13, 300, 420, color.White)
+	text.Draw(screen, "1 fire", basicfont.Face7x13, 32, 442, g.actionColor(g.near("camp") && g.wood >= 2))`r`n`ttext.Draw(screen, "2 shelter", basicfont.Face7x13, 88, 442, g.actionColor(g.near("camp") && !g.shelter && g.wood >= 6))`r`n`ttext.Draw(screen, "3 empty", basicfont.Face7x13, 160, 442, color.RGBA{150, 160, 155, 255})`r`n`ttext.Draw(screen, "4 empty", basicfont.Face7x13, 220, 442, color.RGBA{150, 160, 155, 255})`r`n`ttext.Draw(screen, "5 empty", basicfont.Face7x13, 280, 442, color.RGBA{150, 160, 155, 255})`r`n`ttext.Draw(screen, "6 empty", basicfont.Face7x13, 340, 442, color.RGBA{150, 160, 155, 255})`r`n`ttext.Draw(screen, "7 empty", basicfont.Face7x13, 400, 442, color.RGBA{150, 160, 155, 255})`r`n`ttext.Draw(screen, "8 empty", basicfont.Face7x13, 460, 442, color.RGBA{150, 160, 155, 255})`r`n`ttext.Draw(screen, "9 empty", basicfont.Face7x13, 520, 442, color.RGBA{150, 160, 155, 255})`r`n`ttext.Draw(screen, "0 empty", basicfont.Face7x13, 580, 442, color.RGBA{150, 160, 155, 255})
+	
 	text.Draw(screen, g.message, basicfont.Face7x13, 32, 464, color.RGBA{240, 220, 160, 255})
 }
 func (g *Game) Layout(_, _ int) (int, int) { return 640, 480 }
@@ -430,3 +430,4 @@ func main() {
 		panic(err)
 	}
 }
+
