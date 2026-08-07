@@ -14,7 +14,7 @@ import (
 )
 
 const tile = 32
-const version = "v0.6.3"
+const version = "v0.6.4"
 
 type Food struct {
 	name                                 string
@@ -54,7 +54,7 @@ type Game struct {
 func NewGame() *Game {
 	berries := Food{"shore berries", 120, 1, 28, 0, 4, 0}
 	return &Game{day: 1, warmth: 70, hunger: 75, wood: 3, weather: "clear", x: 320, y: 250, rng: rand.New(rand.NewSource(time.Now().UnixNano())), message: "Explore the island. Q interacts with whatever is closest.", foods: []Food{berries, berries}, nodes: []Node{
-		{110, 120, "wood", false, Food{}}, {170, 260, "wood", false, Food{}}, {500, 150, "wood", false, Food{}}, {535, 255, "wood", false, Food{}}, {95, 305, "wood", false, Food{}}, {350, 105, "wood", false, Food{}}, {420, 210, "wood", false, Food{}}, {70, 210, "wood", false, Food{}}, {570, 110, "wood", false, Food{}}, {300, 300, "wood", false, Food{}},
+		{110, 120, "wood", false, Food{}}, {170, 260, "wood", false, Food{}}, {500, 150, "wood", false, Food{}}, {535, 255, "wood", false, Food{}}, {95, 305, "wood", false, Food{}}, {210, 210, "wood", false, Food{}}, {210, 285, "wood", false, Food{}}, {315, 210, "wood", false, Food{}}, {315, 285, "wood", false, Food{}}, {300, 300, "wood", false, Food{}},
 		{450, 285, "plant", false, Food{"shore berries", 120, 1, 28, 0, 4, 0}}, {145, 185, "plant", false, Food{"wild greens", 80, 3, 10, 0, 5, 0}}, {330, 125, "plant", false, Food{"edible root", 320, 4, 72, 1, 8, 0}}, {470, 230, "plant", false, Food{"questionable mushroom", 60, 2, 8, 1, 2, .35}}, {260, 245, "camp", false, Food{}},
 	}, animals: []Animal{{390, 120, .5, .2, true, 1}, {520, 300, -.3, .4, true, 2}, {210, 170, .2, -.4, true, 3}}, scores: loadScores()}
 }
@@ -501,6 +501,7 @@ func main() {
 		panic(err)
 	}
 }
+
 
 
 
