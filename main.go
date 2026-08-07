@@ -14,7 +14,7 @@ import (
 )
 
 const tile = 32
-const version = "v0.6.7"
+const version = "v0.6.8"
 
 type Food struct {
 	name                                 string
@@ -114,14 +114,16 @@ func (g *Game) Update() error {
 		g.expend(30, 0, 5, 1)
 		g.wood -= 2
 		g.fire = true
-		g.log("fire", "lit fire at camp")
+		g.fireX, g.fireY = g.x, g.y
+		g.log("fire", "lit fire at current location")
 		g.message = "The fire catches. Warmth returns."
 	}
 	if inpututil.IsKeyJustPressed(ebiten.Key2) && !g.shelter && g.wood >= 6 {
 		g.expend(60, 0, 8, 2)
 		g.wood -= 6
 		g.shelter = true
-		g.log("shelter", "built shelter at camp")
+		g.shelterX, g.shelterY = g.x, g.y
+		g.log("shelter", "built shelter at current location")
 		g.message = "A rough shelter stands against the wind."
 	}
 	g.hour += 1.0 / 60.0
@@ -177,27 +179,19 @@ func (g *Game) interact() {
 	g.message = "Nothing useful is close enough to interact with."
 }
 func (g *Game) gather() {
+	best, bestDistance := -1, 999999.0
 	for i := range g.nodes {
 		n := &g.nodes[i]
-		if n.used || abs(float64(n.x)-g.x) >= 42 || abs(float64(n.y)-g.y) >= 42 {
-			continue
-		}
-		if n.kind == "wood" && g.wood < 12 {
-			g.expend(20, 1, 3, 0)
-			g.wood++
-			n.used = true
-			g.message = "You gather dry wood. No luck involved."
-			return
-		}
-		if n.kind == "plant" {
-			g.expend(15, 0, 2, 0)
-			g.foods = append(g.foods, n.food)
-			n.used = true
-			g.message = fmt.Sprintf("You gather %s. It will be eaten automatically when hunger is low.", n.food.name)
-			return
-		}
+		if n.used || abs(float64(n.x)-g.x) >= 42 || abs(float64(n.y)-g.y) >= 42 { continue }
+		if n.kind != "plant" && !(n.kind == "wood" && g.wood < 12) { continue }
+		dx, dy := float64(n.x)-g.x, float64(n.y)-g.y
+		distance := dx*dx + dy*dy
+		if distance < bestDistance { best, bestDistance = i, distance }
 	}
-	g.message = "Nothing useful is close enough to gather."
+	if best < 0 { g.message = "Nothing useful is close enough to gather."; return }
+	n := &g.nodes[best]
+	if n.kind == "wood" { g.expend(20, 1, 3, 0); g.wood++; n.used = true; g.log("gather", "gathered wood"); g.message = "You gather dry wood. No luck involved."; return }
+	g.expend(15, 0, 2, 0); g.foods = append(g.foods, n.food); n.used = true; g.log("gather", n.food.name); g.message = fmt.Sprintf("You gather %s. It will be eaten automatically when hunger is low.", n.food.name)
 }
 func (g *Game) fish() {
 	if !g.nearWater() {
@@ -505,6 +499,7 @@ func main() {
 		panic(err)
 	}
 }
+
 
 
 
