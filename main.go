@@ -15,7 +15,7 @@ import (
 
 const tile = 32
 const maxWood = 20
-const version = "v0.7.1"
+const version = "v0.8.0"
 
 type Food struct {
 	name                                 string
@@ -48,6 +48,7 @@ type Game struct {
 	rng                                       *rand.Rand
 	nutrition                                 Nutrition
 	sickTimer                                 int
+	quarterTicks                              int
 	scores                                    []Score
 	submittedScore                            Score
 	submittedRank                             int
@@ -136,8 +137,8 @@ func (g *Game) Update() error {
 		g.weather = []string{"clear", "wind", "rain"}[g.rng.Intn(3)]
 	}
 	g.tickTimer += 1.0 / 60.0
-	if g.tickTimer >= 1 {
-		g.tickTimer -= 1
+	if g.tickTimer >= 0.25 {
+		g.tickTimer -= 0.25
 		g.tick()
 	}
 	return nil
@@ -391,19 +392,20 @@ func (g *Game) finishRun() {
 	g.message = "You did not make it. Press Escape to try again."
 }
 func (g *Game) tick() {
-	if g.hunger <= 35 && len(g.foods) > 0 {
-		g.eatBestFood()
-	}
-	g.hunger--
-	if g.sickTimer > 0 {
-		g.sickTimer--
-		g.warmth--
+	g.quarterTicks++
+	if g.quarterTicks >= 4 {
+		g.quarterTicks = 0
+		if g.hunger <= 35 && len(g.foods) > 0 {
+			g.eatBestFood()
+		}
+		g.hunger--
+		if g.sickTimer > 0 {
+			g.sickTimer--
+			g.warmth--
+		}
 	}
 	if g.fire {
-		// tick advances the simulation by one in-game hour, so fuel must use
-		// the same unit. The previous frame-sized increment made a four-hour
-		// fire take roughly four real-world minutes to consume wood.
-		g.fireBurnHours++
+		g.fireBurnHours += 0.25
 		if g.fireBurnHours >= 4 {
 			if g.wood > 0 {
 				g.wood--
@@ -415,17 +417,19 @@ func (g *Game) tick() {
 				g.message = "The fire goes out. There is no wood left to feed it."
 			}
 		}
-		if g.fire {
+		if g.fire && g.quarterTicks == 0 {
 			g.warmth += 2
 		}
-	} else {
+	} else if g.quarterTicks == 0 {
 		g.warmth--
 	}
-	if g.weather == "wind" {
-		g.warmth--
-	}
-	if g.weather == "rain" && !g.shelter {
-		g.warmth -= 2
+	if g.quarterTicks == 0 {
+		if g.weather == "wind" {
+			g.warmth--
+		}
+		if g.weather == "rain" && !g.shelter {
+			g.warmth -= 2
+		}
 	}
 	if g.hunger <= 0 || g.warmth <= 0 {
 		g.finishRun()
@@ -487,7 +491,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	ebitenutil.DrawRect(screen, g.x-8, g.y-8, 16, 16, color.RGBA{231, 194, 142, 255})
 	ebitenutil.DrawRect(screen, g.x-5, g.y-13, 10, 7, color.RGBA{85, 52, 36, 255})
-	text.Draw(screen, fmt.Sprintf("LAST LIGHT   DAY %d   %02d:00   %s", g.day, int(g.hour), g.weather), basicfont.Face7x13, 32, 28, color.White)
+	minutes := int((g.hour - float64(int(g.hour))) * 60)
+	minutes = (minutes / 15) * 15
+	text.Draw(screen, fmt.Sprintf("LAST LIGHT   DAY %d   %02d:%02d   %s", g.day, int(g.hour), minutes, g.weather), basicfont.Face7x13, 32, 28, color.White)
 	text.Draw(screen, version, basicfont.Face7x13, 575, 28, color.RGBA{180, 205, 190, 255})
 	text.Draw(screen, fmt.Sprintf("HUNGER %d   WARMTH %d   WOOD %d   FOOD %d", g.hunger, g.warmth, g.wood, len(g.foods)), basicfont.Face7x13, 32, 397, color.White)
 	interactionText, interactionColor := g.interactionLabel()
@@ -542,5 +548,3 @@ func main() {
 		panic(err)
 	}
 }
-
-

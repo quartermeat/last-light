@@ -8,10 +8,16 @@ import (
 	"syscall/js"
 )
 
-const scoreStorageKey = "last-light-leaderboard"
+func scoreStorageKey() string {
+	parts := strings.Split(version, ".")
+	if len(parts) >= 2 {
+		return "last-light-leaderboard-" + parts[0] + "." + parts[1]
+	}
+	return "last-light-leaderboard-" + version
+}
 
 func loadScores() []Score {
-	value := js.Global().Get("localStorage").Call("getItem", scoreStorageKey)
+	value := js.Global().Get("localStorage").Call("getItem", scoreStorageKey())
 	if value.IsNull() || value.IsUndefined() {
 		return nil
 	}
@@ -23,7 +29,7 @@ func loadScores() []Score {
 }
 func saveScores(scores []Score) {
 	data, _ := json.Marshal(scores)
-	js.Global().Get("localStorage").Call("setItem", scoreStorageKey, string(data))
+	js.Global().Get("localStorage").Call("setItem", scoreStorageKey(), string(data))
 }
 func getInitials() string {
 	value := js.Global().Call("prompt", "NEW LEADERBOARD SCORE\nEnter 3 characters:", "YOU")
