@@ -15,7 +15,7 @@ import (
 
 const tile = 32
 const maxWood = 20
-const version = "v0.6.13"
+const version = "v0.7.0"
 
 type Food struct {
 	name                                 string
@@ -49,6 +49,8 @@ type Game struct {
 	nutrition                                 Nutrition
 	sickTimer                                 int
 	scores                                    []Score
+	submittedScore                            Score
+	submittedRank                             int
 	dead                                      bool
 	events                                    []LogEvent
 }
@@ -380,7 +382,9 @@ func (g *Game) finishRun() {
 	name := "RUN"
 	if qualifiesScore(g.scores, hours) {
 		name = getInitials()
+		g.submittedScore = Score{Name: name, Hours: hours}
 		g.scores = recordScore(g.scores, hours, name)
+		g.submittedRank = scoreRank(g.scores, g.submittedScore)
 	}
 	g.log("death", fmt.Sprintf("run ended after %d hours", hours))
 	saveRunLog(g.events, hours, name)
@@ -512,12 +516,17 @@ func ebitengineDrawLeaderboard(screen *ebiten.Image, g *Game) {
 	text.Draw(screen, fmt.Sprintf("SURVIVED %d IN-GAME HOURS", g.runHours()), basicfont.Face7x13, 215, 130, color.White)
 	text.Draw(screen, "TOP 6 / 100 LOCAL LEADERBOARD", basicfont.Face7x13, 215, 170, color.White)
 	visibleScores := len(g.scores)
-	if visibleScores > 6 {
+	if g.submittedRank > 6 {
+		visibleScores = 5
+	} else if visibleScores > 6 {
 		visibleScores = 6
 	}
 	for i := 0; i < visibleScores; i++ {
 		score := g.scores[i]
 		text.Draw(screen, fmt.Sprintf("%d. %s  %d hours", i+1, score.Name, score.Hours), basicfont.Face7x13, 225, 195+i*22, color.RGBA{210, 225, 215, 255})
+	}
+	if g.submittedRank > 6 {
+		text.Draw(screen, fmt.Sprintf("%d. %s  %d hours  (YOUR RUN)", g.submittedRank, g.submittedScore.Name, g.submittedScore.Hours), basicfont.Face7x13, 225, 195+5*22, color.RGBA{240, 220, 160, 255})
 	}
 	text.Draw(screen, "ESC to start a new run", basicfont.Face7x13, 235, 330, color.RGBA{240, 220, 160, 255})
 }

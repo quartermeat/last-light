@@ -22,3 +22,12 @@ func recordScore(scores []Score, score int, name string) []Score {
 	saveScores(scores)
 	return scores
 }
+
+func scoreRank(scores []Score, target Score) int {
+	for i, score := range scores {
+		if score == target {
+			return i + 1
+		}
+	}
+	return 0
+}
