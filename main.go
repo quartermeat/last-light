@@ -15,7 +15,7 @@ import (
 
 const tile = 32
 const maxWood = 20
-const version = "v0.7.0"
+const version = "v0.7.1"
 
 type Food struct {
 	name                                 string
@@ -523,10 +523,14 @@ func ebitengineDrawLeaderboard(screen *ebiten.Image, g *Game) {
 	}
 	for i := 0; i < visibleScores; i++ {
 		score := g.scores[i]
-		text.Draw(screen, fmt.Sprintf("%d. %s  %d hours", i+1, score.Name, score.Hours), basicfont.Face7x13, 225, 195+i*22, color.RGBA{210, 225, 215, 255})
+		rowColor := color.RGBA{210, 225, 215, 255}
+		if g.submittedRank > 0 && score == g.submittedScore {
+			rowColor = color.RGBA{255, 220, 100, 255}
+		}
+		text.Draw(screen, fmt.Sprintf("%d. %s  %d hours", i+1, score.Name, score.Hours), basicfont.Face7x13, 225, 195+i*22, rowColor)
 	}
 	if g.submittedRank > 6 {
-		text.Draw(screen, fmt.Sprintf("%d. %s  %d hours  (YOUR RUN)", g.submittedRank, g.submittedScore.Name, g.submittedScore.Hours), basicfont.Face7x13, 225, 195+5*22, color.RGBA{240, 220, 160, 255})
+		text.Draw(screen, fmt.Sprintf("%d. %s  %d hours  (YOUR RUN)", g.submittedRank, g.submittedScore.Name, g.submittedScore.Hours), basicfont.Face7x13, 225, 195+5*22, color.RGBA{255, 220, 100, 255})
 	}
 	text.Draw(screen, "ESC to start a new run", basicfont.Face7x13, 235, 330, color.RGBA{240, 220, 160, 255})
 }
