@@ -18,7 +18,7 @@ const mapCols = 18
 const mapRows = 10
 const waterTileCount = 18
 const maxWood = 20
-const version = "v0.11.0"
+const version = "v0.11.1"
 
 type Food struct {
 	name                                 string
@@ -672,6 +672,16 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			}
 			mask := sunMaskColor(heat)
 			ebitenutil.DrawRect(screen, float64(32+column*tile), 48, tile, 320, mask)
+		}
+	}
+	for row := 0; row < mapRows; row++ {
+		for col := 0; col < mapCols; col++ {
+			if !g.water[col][row] {
+				continue
+			}
+			x, y := 32+col*tile, 48+row*tile
+			ebitenutil.DrawRect(screen, float64(x), float64(y), tile, tile, color.RGBA{35, 105, 145, 225})
+			ebitenutil.DrawRect(screen, float64(x+3), float64(y+9), tile-6, 2, color.RGBA{125, 190, 205, 180})
 		}
 	}
 	for _, n := range g.nodes {
