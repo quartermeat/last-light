@@ -36,4 +36,14 @@ Nutrition is simulated behind the scenes: calories, protein, carbohydrates, fat,
 
 The browser build keeps the top 100 survival runs in local browser storage. Qualifying runs use a classic three-character initials entry, and scores are measured in in-game hours. Completed runs also retain structured gameplay logs for later correlation. No account or network service is required.
 
+## Optional leaderboard backend
+
+The browser-local leaderboard can later be hosted with the optional Go/SQLite service:
+
+```powershell
+cd server
+go run .
+```
+
+It exposes `GET /api/leaderboard`, `POST /api/runs`, and `GET /healthz`. Set `LISTEN_ADDR` to change the bind address and `LAST_LIGHT_DB` to choose the SQLite file path.
 
