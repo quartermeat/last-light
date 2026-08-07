@@ -37,7 +37,8 @@ type Game struct {
 	day                        int
 	hour, tickTimer, moveTimer, fireBurnHours float64
 	hunger, warmth, wood       int
-	shelter, fire              bool`r`n	fireX, fireY, shelterX, shelterY float64
+	shelter, fire              bool
+	fireX, fireY, shelterX, shelterY float64
 	weather, message           string
 	x, y                       float64
 	nodes                      []Node
@@ -501,6 +502,7 @@ func main() {
 		panic(err)
 	}
 }
+
 
 
 
