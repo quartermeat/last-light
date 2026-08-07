@@ -14,7 +14,7 @@ import (
 )
 
 const tile = 32
-const version = "v0.6.5"
+const version = "v0.6.6"
 
 type Food struct {
 	name                                 string
@@ -502,6 +502,7 @@ func main() {
 		panic(err)
 	}
 }
+
 
 
 
