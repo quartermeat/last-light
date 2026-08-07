@@ -463,6 +463,14 @@ func (g *Game) sunPosition() (float64, bool) {
 }
 
 func (g *Game) sunHeatAtPlayer() int {
+	heat := g.sunHeatAtPlayerFloat()
+	if heat <= 0 {
+		return 0
+	}
+	return int(math.Round(heat))
+}
+
+func (g *Game) sunHeatAtPlayerFloat() float64 {
 	sun, visible := g.sunPosition()
 	if !visible {
 		return 0
@@ -472,8 +480,8 @@ func (g *Game) sunHeatAtPlayer() int {
 	if distance < 0 {
 		distance = -distance
 	}
-	heat := 5 - int(distance)
-	if heat < 1 {
+	heat := 5 - distance
+	if heat < 0 {
 		return 0
 	}
 	return heat
@@ -662,10 +670,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			if distance < 0 {
 				distance = -distance
 			}
-			heat := 5 - int(distance)
-			if heat < 0 {
-				heat = 0
-			}
+			heat := 5 - distance
 			mask := sunMaskColor(heat)
 			ebitenutil.DrawRect(screen, float64(32+column*tile), 48, tile, 320, mask)
 		}
@@ -712,9 +717,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	ebitenutil.DrawRect(screen, g.x-8, g.y-8, 16, 16, color.RGBA{231, 194, 142, 255})
 	ebitenutil.DrawRect(screen, g.x-5, g.y-13, 10, 7, color.RGBA{85, 52, 36, 255})
-	if g.hour < 6 || g.hour >= 18 {
-		g.drawNightOverlay(screen)
-	}
+	g.drawFogOverlay(screen)
 	minutes := int((g.hour - float64(int(g.hour))) * 60)
 	minutes = (minutes / 15) * 15
 	text.Draw(screen, fmt.Sprintf("LAST LIGHT   DAY %d   %02d:%02d   %s", g.day, int(g.hour), minutes, g.weather), basicfont.Face7x13, 32, 28, color.White)
@@ -751,26 +754,25 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 }
 
-func sunMaskColor(heat int) color.RGBA {
-	switch heat {
-	case 5:
-		return color.RGBA{255, 232, 38, 38}
-	case 4:
-		return color.RGBA{255, 222, 44, 29}
-	case 3:
-		return color.RGBA{255, 212, 52, 21}
-	case 2:
-		return color.RGBA{255, 202, 66, 14}
-	case 1:
-		return color.RGBA{255, 194, 78, 8}
-	default:
-		return color.RGBA{255, 188, 92, 4}
+func sunMaskColor(heat float64) color.RGBA {
+	if heat < 0 {
+		heat = 0
 	}
+	if heat > 5 {
+		heat = 5
+	}
+	alpha := uint8(4 + heat*7)
+	blue := uint8(92 - heat*11)
+	return color.RGBA{255, 188, blue, alpha}
 }
 
-func (g *Game) drawNightOverlay(screen *ebiten.Image) {
-	const radius = 54.0
+func (g *Game) drawFogOverlay(screen *ebiten.Image) {
 	const mapLeft, mapTop, mapRight, mapBottom = 32.0, 48.0, 608.0, 368.0
+	radius := 54.0 + g.sunHeatAtPlayerFloat()*24
+	alpha := uint8(225)
+	if g.hour >= 6 && g.hour < 18 {
+		alpha = 205
+	}
 	for y := mapTop; y < mapBottom; y += 4 {
 		distanceY := (y + 2) - g.y
 		if distanceY < 0 {
@@ -789,10 +791,10 @@ func (g *Game) drawNightOverlay(screen *ebiten.Image) {
 			right = mapRight
 		}
 		if left > mapLeft {
-			ebitenutil.DrawRect(screen, mapLeft, y, left-mapLeft, 4, color.RGBA{5, 9, 16, 225})
+			ebitenutil.DrawRect(screen, mapLeft, y, left-mapLeft, 4, color.RGBA{5, 9, 16, alpha})
 		}
 		if right < mapRight {
-			ebitenutil.DrawRect(screen, right, y, mapRight-right, 4, color.RGBA{5, 9, 16, 225})
+			ebitenutil.DrawRect(screen, right, y, mapRight-right, 4, color.RGBA{5, 9, 16, alpha})
 		}
 	}
 }
