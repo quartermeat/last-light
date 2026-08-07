@@ -46,6 +46,8 @@ go run ./cmd/runner -trials 10000 -seed 1 -address http://127.0.0.1:8080 -submit
 
 Submitted tester runs use the initials `NEO`. Add `-fishing=false` to measure a no-fishing strategy. On the run-over screen, keys `1` through `6` replay only the visible leaderboard rows at 8x speed.
 
+Use `-submit-count 100` to fill the SQL leaderboard with the top 100 simulated runs from the trial batch.
+
 ## Single-process local run
 
 The optional Go/SQLite backend can serve both the game and API from one process:

@@ -19,7 +19,7 @@ const mapCols = 18
 const mapRows = 10
 const waterTileCount = 18
 const maxWood = 20
-const version = "v0.13.2"
+const version = "v0.13.3"
 
 type Food struct {
 	name                                 string

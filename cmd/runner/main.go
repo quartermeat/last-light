@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"sort"
 )
 
 type point struct{ x, y float64 }
@@ -52,30 +53,43 @@ func main() {
 	seed := flag.Int64("seed", 1, "random seed")
 	allowFishing := flag.Bool("fishing", true, "allow fishing during simulated runs")
 	submit := flag.Bool("submit", false, "submit the best run to the leaderboard as NEO")
+	submitCount := flag.Int("submit-count", 1, "number of best simulated runs to submit")
 	address := flag.String("address", "http://127.0.0.1:8080", "Last Light server URL")
 	flag.Parse()
 
 	bestHours := -1
 	best := strategy{}
-	var bestRun *run
+	var candidates []*run
 	master := rand.New(rand.NewSource(*seed))
 	for i := 0; i < *trials; i++ {
 		s := strategy{woodTarget: 8 + master.Intn(6), plants: master.Intn(5), hunts: master.Intn(4), fishFirst: master.Intn(2) == 0}
 		candidate := simulate(s, master.Int63(), *allowFishing)
 		hours := candidate.hourTotal()
 		if hours > bestHours {
-			bestHours, best, bestRun = hours, s, candidate
+			bestHours, best = hours, s
+		}
+		if *submit {
+			candidates = append(candidates, candidate)
 		}
 	}
 
 	fmt.Printf("best survival: %d in-game hours\n", bestHours)
 	fmt.Printf("strategy: wood target=%d, plants=%d, hunts=%d, fish-first=%t\n", best.woodTarget, best.plants, best.hunts, best.fishFirst)
 	if *submit {
-		if err := submitRun(*address, bestRun); err != nil {
-			fmt.Printf("submission failed: %v\n", err)
-			return
+		sort.Slice(candidates, func(i, j int) bool { return candidates[i].hourTotal() > candidates[j].hourTotal() })
+		if *submitCount < 1 {
+			*submitCount = 1
 		}
-		fmt.Println("submitted to leaderboard as NEO")
+		if *submitCount > len(candidates) {
+			*submitCount = len(candidates)
+		}
+		for i := 0; i < *submitCount; i++ {
+			if err := submitRun(*address, candidates[i]); err != nil {
+				fmt.Printf("submission %d failed: %v\n", i+1, err)
+				return
+			}
+		}
+		fmt.Printf("submitted %d runs to leaderboard as NEO\n", *submitCount)
 	}
 }
 
