@@ -14,7 +14,7 @@ import (
 )
 
 const tile = 32
-const version = "v0.6.6"
+const version = "v0.6.7"
 
 type Food struct {
 	name                                 string
@@ -488,8 +488,11 @@ func ebitengineDrawLeaderboard(screen *ebiten.Image, g *Game) {
 	ebitenutil.DrawRect(screen, 150, 70, 340, 285, color.RGBA{12, 18, 20, 235})
 	text.Draw(screen, "RUN OVER", basicfont.Face7x13, 285, 105, color.RGBA{245, 220, 150, 255})
 	text.Draw(screen, fmt.Sprintf("SURVIVED %d IN-GAME HOURS", g.runHours()), basicfont.Face7x13, 215, 130, color.White)
-	text.Draw(screen, "TOP 100 LOCAL LEADERBOARD", basicfont.Face7x13, 230, 170, color.White)
-	for i, score := range g.scores {
+	text.Draw(screen, "TOP 6 / 100 LOCAL LEADERBOARD", basicfont.Face7x13, 215, 170, color.White)
+	visibleScores := len(g.scores)
+	if visibleScores > 6 { visibleScores = 6 }
+	for i := 0; i < visibleScores; i++ {
+		score := g.scores[i]
 		text.Draw(screen, fmt.Sprintf("%d. %s  %d hours", i+1, score.Name, score.Hours), basicfont.Face7x13, 225, 195+i*22, color.RGBA{210, 225, 215, 255})
 	}
 	text.Draw(screen, "ESC to start a new run", basicfont.Face7x13, 235, 330, color.RGBA{240, 220, 160, 255})
@@ -502,6 +505,7 @@ func main() {
 		panic(err)
 	}
 }
+
 
 
 
