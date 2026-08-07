@@ -32,4 +32,7 @@ Versions follow a three-part release rule:
 
 Nutrition is simulated behind the scenes: calories, protein, carbohydrates, fat, and fiber are added by meals and consumed by movement and actions. The player only sees the hunger result. Risky vegetation can cause sickness when automatically eaten.
 
+## Leaderboard
+
+The browser build keeps the top five survival runs in local browser storage. Scores are measured in in-game hours and appear on the run-over screen. No account or network service is required.
 

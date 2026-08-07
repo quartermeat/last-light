@@ -14,7 +14,7 @@ import (
 )
 
 const tile = 32
-const version = "v0.2.3"
+const version = "v0.3.0"
 
 type Food struct {
 	name                                 string
@@ -46,6 +46,8 @@ type Game struct {
 	rng                        *rand.Rand
 	nutrition                  Nutrition
 	sickTimer                  int
+	scores                     []int
+	dead                       bool
 }
 
 func NewGame() *Game {
@@ -53,12 +55,15 @@ func NewGame() *Game {
 	return &Game{day: 1, warmth: 70, hunger: 75, wood: 3, weather: "clear", x: 320, y: 250, rng: rand.New(rand.NewSource(time.Now().UnixNano())), message: "Explore the island. Q interacts with whatever is closest.", foods: []Food{berries, berries}, nodes: []Node{
 		{110, 120, "wood", false, Food{}}, {170, 260, "wood", false, Food{}}, {500, 150, "wood", false, Food{}}, {535, 255, "wood", false, Food{}}, {95, 305, "wood", false, Food{}}, {350, 105, "wood", false, Food{}}, {420, 210, "wood", false, Food{}},
 		{450, 285, "plant", false, Food{"shore berries", 120, 1, 28, 0, 4, 0}}, {145, 185, "plant", false, Food{"wild greens", 80, 3, 10, 0, 5, 0}}, {330, 125, "plant", false, Food{"edible root", 320, 4, 72, 1, 8, 0}}, {470, 230, "plant", false, Food{"questionable mushroom", 60, 2, 8, 1, 2, .35}}, {260, 245, "camp", false, Food{}},
-	}, animals: []Animal{{390, 120, .5, .2, true, 1}, {520, 300, -.3, .4, true, 2}, {210, 170, .2, -.4, true, 3}}}
+	}, animals: []Animal{{390, 120, .5, .2, true, 1}, {520, 300, -.3, .4, true, 2}, {210, 170, .2, -.4, true, 3}}, scores: loadScores()}
 }
 
 func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 		*g = *NewGame()
+		return nil
+	}
+	if g.dead {
 		return nil
 	}
 	dx, dy := 0.0, 0.0
@@ -329,6 +334,15 @@ func (g *Game) eatBestFood() {
 	g.nutrition.fiber += meal.fiber
 	g.message = fmt.Sprintf("Automatic meal: %s restores %d hunger.", meal.name, restore)
 }
+func (g *Game) runHours() int { return (g.day-1)*24 + int(g.hour) }
+func (g *Game) finishRun() {
+	if g.dead {
+		return
+	}
+	g.dead = true
+	g.scores = recordScore(g.scores, g.runHours())
+	g.message = "You did not make it. Press Escape to try again."
+}
 func (g *Game) tick() {
 	if g.hunger <= 35 && len(g.foods) > 0 {
 		g.eatBestFood()
@@ -350,7 +364,7 @@ func (g *Game) tick() {
 		g.warmth -= 2
 	}
 	if g.hunger <= 0 || g.warmth <= 0 {
-		g.message = "You did not make it. Press Escape to try again."
+		g.finishRun()
 	}
 	if g.hunger < 0 {
 		g.hunger = 0
@@ -430,6 +444,19 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	text.Draw(screen, "0 empty", basicfont.Face7x13, 580, 442, color.RGBA{150, 160, 155, 255})
 
 	text.Draw(screen, g.message, basicfont.Face7x13, 32, 464, color.RGBA{240, 220, 160, 255})
+	if g.dead {
+		ebitengineDrawLeaderboard(screen, g)
+	}
+}
+func ebitengineDrawLeaderboard(screen *ebiten.Image, g *Game) {
+	ebitenutil.DrawRect(screen, 150, 70, 340, 285, color.RGBA{12, 18, 20, 235})
+	text.Draw(screen, "RUN OVER", basicfont.Face7x13, 285, 105, color.RGBA{245, 220, 150, 255})
+	text.Draw(screen, fmt.Sprintf("SURVIVED %d IN-GAME HOURS", g.runHours()), basicfont.Face7x13, 215, 130, color.White)
+	text.Draw(screen, "LOCAL LEADERBOARD", basicfont.Face7x13, 250, 170, color.White)
+	for i, score := range g.scores {
+		text.Draw(screen, fmt.Sprintf("%d. %d hours", i+1, score), basicfont.Face7x13, 245, 195+i*22, color.RGBA{210, 225, 215, 255})
+	}
+	text.Draw(screen, "ESC to start a new run", basicfont.Face7x13, 235, 330, color.RGBA{240, 220, 160, 255})
 }
 func (g *Game) Layout(_, _ int) (int, int) { return 640, 480 }
 func main() {
