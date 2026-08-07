@@ -15,7 +15,7 @@ import (
 
 const tile = 32
 const maxWood = 20
-const version = "v0.8.0"
+const version = "v0.8.2"
 
 type Food struct {
 	name                                 string
