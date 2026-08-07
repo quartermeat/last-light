@@ -19,7 +19,7 @@ const mapCols = 18
 const mapRows = 10
 const waterTileCount = 18
 const maxWood = 20
-const version = "v0.13.0"
+const version = "v0.13.1"
 
 type Food struct {
 	name                                 string
@@ -766,7 +766,11 @@ func scaleColor(c color.RGBA, brightness float64) color.RGBA {
 
 func (g *Game) drawFogOverlay(screen *ebiten.Image) {
 	const mapLeft, mapTop, mapRight, mapBottom = 32.0, 48.0, 608.0, 368.0
-	radius := 54.0 + g.sunHeatAtPlayerFloat()*24
+	sunHeat := g.sunHeatAtPlayerFloat()
+	if sunHeat >= 4.5 {
+		return
+	}
+	radius := 54.0 + sunHeat*70
 	alpha := uint8(225)
 	if g.hour >= 6 && g.hour < 18 {
 		alpha = 205
