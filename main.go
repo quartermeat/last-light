@@ -13,7 +13,8 @@ import (
 	"golang.org/x/image/font/basicfont"
 )
 
-const tile = 32`r`nconst maxWood = 20
+const tile = 32
+const maxWood = 20
 const version = "v0.6.12"
 
 type Food struct {
@@ -525,4 +526,5 @@ func main() {
 		panic(err)
 	}
 }
+
 
