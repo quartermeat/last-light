@@ -35,7 +35,7 @@ type Animal struct {
 }
 type Game struct {
 	day                        int
-	hour, tickTimer, moveTimer float64
+	hour, tickTimer, moveTimer, fireBurnHours float64
 	hunger, warmth, wood       int
 	shelter, fire              bool
 	weather, message           string
@@ -501,6 +501,7 @@ func main() {
 		panic(err)
 	}
 }
+
 
 
 
