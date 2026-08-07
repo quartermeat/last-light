@@ -15,7 +15,7 @@ import (
 
 const tile = 32
 const maxWood = 20
-const version = "v0.10.0"
+const version = "v0.10.1"
 
 type Food struct {
 	name                                 string
@@ -589,8 +589,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				continue
 			}
 			heat := 3 - absInt(offset)
-			alpha := uint8(28 + heat*18)
-			ebitenutil.DrawRect(screen, float64(32+column*tile), 48, tile, 320, color.RGBA{255, 224, 72, alpha})
+			mask := sunMaskColor(heat)
+			ebitenutil.DrawRect(screen, float64(32+column*tile), 48, tile, 320, mask)
 		}
 	}
 	for _, n := range g.nodes {
@@ -656,6 +656,17 @@ func absInt(v int) int {
 		return -v
 	}
 	return v
+}
+
+func sunMaskColor(heat int) color.RGBA {
+	switch heat {
+	case 3:
+		return color.RGBA{255, 232, 38, 150}
+	case 2:
+		return color.RGBA{255, 214, 54, 100}
+	default:
+		return color.RGBA{255, 198, 82, 55}
+	}
 }
 
 func ebitengineDrawLeaderboard(screen *ebiten.Image, g *Game) {
