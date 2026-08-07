@@ -14,7 +14,7 @@ import (
 )
 
 const tile = 32
-const version = "v0.1.0"
+const version = "v0.1.1"
 
 type Node struct {
 	x, y int
@@ -50,7 +50,7 @@ func NewGame() *Game {
 }
 
 func (g *Game) Update() error {
-	if inpututil.IsKeyJustPressed(ebiten.KeyR) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 		*g = *NewGame()
 		return nil
 	}
@@ -85,10 +85,10 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyE) {
 		g.gather()
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyP) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyG) {
 		g.fish()
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyH) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyR) {
 		g.hunt()
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyF) && g.near("camp") && g.wood >= 2 {
@@ -100,14 +100,6 @@ func (g *Game) Update() error {
 		g.wood -= 6
 		g.shelter = true
 		g.message = "A rough shelter stands against the wind."
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyQ) && g.food > 0 {
-		g.food--
-		g.hunger += 24
-		if g.hunger > 100 {
-			g.hunger = 100
-		}
-		g.message = "You eat slowly and feel human again."
 	}
 	g.hour += 1.0 / 60.0
 	if g.hour >= 24 {
@@ -241,6 +233,11 @@ func abs(v float64) float64 {
 	return v
 }
 func (g *Game) tick() {
+	if g.hunger <= 35 && g.food > 0 {
+		g.food--
+		g.hunger += 24
+		g.message = "Hunger triggers an automatic meal."
+	}
 	g.hunger--
 	if g.fire {
 		g.warmth += 2
@@ -317,10 +314,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	text.Draw(screen, "E gather", basicfont.Face7x13, 190, 420, g.actionColor(g.canGather()))
 	text.Draw(screen, "F fire", basicfont.Face7x13, 260, 420, g.actionColor(g.near("camp") && g.wood >= 2))
 	text.Draw(screen, "B shelter", basicfont.Face7x13, 315, 420, g.actionColor(g.near("camp") && !g.shelter && g.wood >= 6))
-	text.Draw(screen, "P fish", basicfont.Face7x13, 32, 442, g.actionColor(g.nearWater()))
-	text.Draw(screen, "H hunt", basicfont.Face7x13, 90, 442, g.actionColor(g.canHunt()))
-	text.Draw(screen, "Q eat", basicfont.Face7x13, 155, 442, g.actionColor(g.food > 0))
-	text.Draw(screen, "R restart", basicfont.Face7x13, 215, 442, color.White)
+	text.Draw(screen, "G fish", basicfont.Face7x13, 32, 442, g.actionColor(g.nearWater()))
+	text.Draw(screen, "R hunt", basicfont.Face7x13, 90, 442, g.actionColor(g.canHunt()))
+	text.Draw(screen, "ESC restart", basicfont.Face7x13, 155, 442, color.White)
 	text.Draw(screen, g.message, basicfont.Face7x13, 32, 464, color.RGBA{240, 220, 160, 255})
 }
 func (g *Game) Layout(_, _ int) (int, int) { return 640, 480 }
