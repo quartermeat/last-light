@@ -14,7 +14,7 @@ import (
 )
 
 const tile = 32
-const version = "v0.1.2"
+const version = "v0.1.3"
 
 type Node struct {
 	x, y int
@@ -82,14 +82,8 @@ func (g *Game) Update() error {
 		g.y = 365
 	}
 	g.updateAnimals()
-	if inpututil.IsKeyJustPressed(ebiten.KeyE) {
-		g.gather()
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyG) {
-		g.fish()
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyR) {
-		g.hunt()
+	if inpututil.IsKeyJustPressed(ebiten.KeyQ) {
+		g.interact()
 	}
 	if inpututil.IsKeyJustPressed(ebiten.Key1) && g.near("camp") && g.wood >= 2 {
 		g.wood -= 2
@@ -139,6 +133,22 @@ func (g *Game) updateAnimals() {
 		}
 	}
 }
+func (g *Game) interact() {
+	if g.canGather() {
+		g.gather()
+		return
+	}
+	if g.canHunt() {
+		g.hunt()
+		return
+	}
+	if g.nearWater() {
+		g.fish()
+		return
+	}
+	g.message = "Nothing useful is close enough to interact with."
+}
+
 func (g *Game) gather() {
 	for i := range g.nodes {
 		n := &g.nodes[i]
@@ -311,11 +321,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	text.Draw(screen, version, basicfont.Face7x13, 575, 28, color.RGBA{180, 205, 190, 255})
 	text.Draw(screen, fmt.Sprintf("HUNGER %d   WARMTH %d   WOOD %d   FOOD %d", g.hunger, g.warmth, g.wood, g.food), basicfont.Face7x13, 32, 397, color.White)
 	text.Draw(screen, "WASD / ARROWS move", basicfont.Face7x13, 32, 420, color.White)
-	text.Draw(screen, "E gather", basicfont.Face7x13, 190, 420, g.actionColor(g.canGather()))
+	text.Draw(screen, "Q gather", basicfont.Face7x13, 190, 420, g.actionColor(g.canGather()))
 	text.Draw(screen, "1 fire", basicfont.Face7x13, 260, 420, g.actionColor(g.near("camp") && g.wood >= 2))
 	text.Draw(screen, "2 shelter", basicfont.Face7x13, 315, 420, g.actionColor(g.near("camp") && !g.shelter && g.wood >= 6))
-	text.Draw(screen, "G fish", basicfont.Face7x13, 32, 442, g.actionColor(g.nearWater()))
-	text.Draw(screen, "R hunt", basicfont.Face7x13, 90, 442, g.actionColor(g.canHunt()))
+	text.Draw(screen, "Q fish", basicfont.Face7x13, 32, 442, g.actionColor(g.nearWater()))
+	text.Draw(screen, "Q hunt", basicfont.Face7x13, 90, 442, g.actionColor(g.canHunt()))
 	text.Draw(screen, "ESC restart", basicfont.Face7x13, 155, 442, color.White)
 	text.Draw(screen, g.message, basicfont.Face7x13, 32, 464, color.RGBA{240, 220, 160, 255})
 }
