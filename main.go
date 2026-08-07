@@ -91,12 +91,12 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyR) {
 		g.hunt()
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyF) && g.near("camp") && g.wood >= 1 {
+	if inpututil.IsKeyJustPressed(ebiten.Key1) && g.near("camp") && g.wood >= 2 {
 		g.wood -= 2
 		g.fire = true
 		g.message = "The fire catches. Warmth returns."
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyB) && g.near("camp") && !g.shelter && g.wood >= 2 {
+	if inpututil.IsKeyJustPressed(ebiten.Key2) && g.near("camp") && !g.shelter && g.wood >= 6 {
 		g.wood -= 6
 		g.shelter = true
 		g.message = "A rough shelter stands against the wind."
@@ -312,8 +312,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	text.Draw(screen, fmt.Sprintf("HUNGER %d   WARMTH %d   WOOD %d   FOOD %d", g.hunger, g.warmth, g.wood, g.food), basicfont.Face7x13, 32, 397, color.White)
 	text.Draw(screen, "WASD / ARROWS move", basicfont.Face7x13, 32, 420, color.White)
 	text.Draw(screen, "E gather", basicfont.Face7x13, 190, 420, g.actionColor(g.canGather()))
-	text.Draw(screen, "F fire", basicfont.Face7x13, 260, 420, g.actionColor(g.near("camp") && g.wood >= 1))
-	text.Draw(screen, "B shelter", basicfont.Face7x13, 315, 420, g.actionColor(g.near("camp") && !g.shelter && g.wood >= 2))
+	text.Draw(screen, "1 fire", basicfont.Face7x13, 260, 420, g.actionColor(g.near("camp") && g.wood >= 2))
+	text.Draw(screen, "2 shelter", basicfont.Face7x13, 315, 420, g.actionColor(g.near("camp") && !g.shelter && g.wood >= 6))
 	text.Draw(screen, "G fish", basicfont.Face7x13, 32, 442, g.actionColor(g.nearWater()))
 	text.Draw(screen, "R hunt", basicfont.Face7x13, 90, 442, g.actionColor(g.canHunt()))
 	text.Draw(screen, "ESC restart", basicfont.Face7x13, 155, 442, color.White)

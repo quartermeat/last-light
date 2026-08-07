@@ -8,9 +8,11 @@ A small top-down pixel survival-sim prototype built with Go and Ebitengine, targ
 - E: gather nearby wood or food (guaranteed when available)
 - G: fish at the shoreline (55% success chance)
 - R: hunt nearby moving game (50% success chance)
-- F: light a fire at camp (1 wood)
-- B: build shelter at camp (2 wood)
+- 1: light a fire at camp (2 wood)
+- 2: build shelter at camp (6 wood)
 - Esc: restart
+
+Numbered keys are the learned-skill slots; fire and shelter currently occupy 1 and 2.
 
 ## Run locally
 
@@ -29,6 +31,7 @@ Versions follow a three-part release rule:
 - Patch (`v0.0.x`): every new build, including fixes, tuning, and balance changes.
 - Feature (`v0.x.0`): a meaningful new feature; reset the patch number to zero.
 - Shareable (`v1.0.0` or later): promoted when Jeremy feels the game is ready to share with someone.
+
 
 
 
