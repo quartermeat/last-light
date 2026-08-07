@@ -18,7 +18,7 @@ const mapCols = 18
 const mapRows = 10
 const waterTileCount = 18
 const maxWood = 20
-const version = "v0.11.1"
+const version = "v0.11.2"
 
 type Food struct {
 	name                                 string
@@ -720,6 +720,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	minutes = (minutes / 15) * 15
 	text.Draw(screen, fmt.Sprintf("LAST LIGHT   DAY %d   %02d:%02d   %s", g.day, int(g.hour), minutes, g.weather), basicfont.Face7x13, 32, 28, color.White)
 	text.Draw(screen, version, basicfont.Face7x13, 575, 28, color.RGBA{180, 205, 190, 255})
+	rainStatus, rainColor := "NO RAIN PENALTY", color.RGBA{180, 205, 190, 255}
+	if g.weather == "rain" && g.shelter {
+		rainStatus, rainColor = "RAIN: SHELTERED", color.RGBA{120, 235, 145, 255}
+	} else if g.weather == "rain" {
+		rainStatus, rainColor = "RAIN: -2 WARMTH", color.RGBA{245, 110, 100, 255}
+	}
+	text.Draw(screen, rainStatus, basicfont.Face7x13, 32, 44, rainColor)
 	text.Draw(screen, fmt.Sprintf("HUNGER %d   WARMTH %d   WOOD %d   FOOD %d", g.hunger, g.warmth, g.wood, len(g.foods)), basicfont.Face7x13, 32, 397, color.White)
 	interactionText, interactionColor := g.interactionLabel()
 	text.Draw(screen, "WASD / ARROWS move", basicfont.Face7x13, 32, 420, color.White)
