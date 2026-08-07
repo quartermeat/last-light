@@ -14,12 +14,18 @@ import (
 )
 
 const tile = 32
-const version = "v0.1.3"
+const version = "v0.2.0"
 
+type Food struct {
+	name                                 string
+	calories, protein, carbs, fat, fiber int
+	risk                                 float64
+}
 type Node struct {
 	x, y int
 	kind string
 	used bool
+	food Food
 }
 type Animal struct {
 	x, y, vx, vy float64
@@ -27,24 +33,34 @@ type Animal struct {
 	turnIn       float64
 }
 type Game struct {
-	day                        int
-	hour                       float64
-	tickTimer                  float64
-	hunger, warmth, wood, food int
-	shelter, fire              bool
-	weather, message           string
-	x, y                       float64
-	nodes                      []Node
-	animals                    []Animal
-	rng                        *rand.Rand
+	day                                                                      int
+	hour, tickTimer                                                          float64
+	hunger, warmth, wood                                                     int
+	shelter, fire                                                            bool
+	weather, message                                                         string
+	x, y                                                                     float64
+	nodes                                                                    []Node
+	animals                                                                  []Animal
+	foods                                                                    []Food
+	rng                                                                      *rand.Rand
+	eatenCalories, eatenProtein, eatenCarbs, eatenFat, eatenFiber, sickTimer int
 }
 
 func NewGame() *Game {
+	berries := Food{"shore berries", 120, 1, 28, 0, 4, 0}
 	return &Game{
-		day: 1, warmth: 70, hunger: 75, wood: 3, food: 2, weather: "clear",
-		x: 320, y: 250, rng: rand.New(rand.NewSource(time.Now().UnixNano())),
-		message: "Explore the island. Static resources are guaranteed; moving game is not.",
-		nodes:   []Node{{110, 120, "wood", false}, {170, 260, "wood", false}, {500, 150, "wood", false}, {535, 255, "wood", false}, {95, 305, "wood", false}, {350, 105, "wood", false}, {420, 210, "wood", false}, {450, 285, "food", false}, {260, 245, "camp", false}},
+		day: 1, warmth: 70, hunger: 75, wood: 3, weather: "clear", x: 320, y: 250,
+		rng:     rand.New(rand.NewSource(time.Now().UnixNano())),
+		message: "Explore the island. Q interacts with whatever is closest.", foods: []Food{berries, berries},
+		nodes: []Node{
+			{110, 120, "wood", false, Food{}}, {170, 260, "wood", false, Food{}}, {500, 150, "wood", false, Food{}},
+			{535, 255, "wood", false, Food{}}, {95, 305, "wood", false, Food{}}, {350, 105, "wood", false, Food{}},
+			{420, 210, "wood", false, Food{}}, {450, 285, "plant", false, Food{"shore berries", 120, 1, 28, 0, 4, 0}},
+			{145, 185, "plant", false, Food{"wild greens", 80, 3, 10, 0, 5, 0}},
+			{330, 125, "plant", false, Food{"edible root", 320, 4, 72, 1, 8, 0}},
+			{470, 230, "plant", false, Food{"questionable mushroom", 60, 2, 8, 1, 2, .35}},
+			{260, 245, "camp", false, Food{}},
+		},
 		animals: []Animal{{390, 120, .5, .2, true, 1}, {520, 300, -.3, .4, true, 2}, {210, 170, .2, -.4, true, 3}},
 	}
 }
@@ -148,7 +164,6 @@ func (g *Game) interact() {
 	}
 	g.message = "Nothing useful is close enough to interact with."
 }
-
 func (g *Game) gather() {
 	for i := range g.nodes {
 		n := &g.nodes[i]
@@ -161,10 +176,10 @@ func (g *Game) gather() {
 			g.message = "You gather dry wood. No luck involved."
 			return
 		}
-		if n.kind == "food" {
-			g.food++
+		if n.kind == "plant" {
+			g.foods = append(g.foods, n.food)
 			n.used = true
-			g.message = "You gather an edible plant. No luck involved."
+			g.message = fmt.Sprintf("You gather %s. It will be eaten automatically when hunger is low.", n.food.name)
 			return
 		}
 	}
@@ -176,8 +191,8 @@ func (g *Game) fish() {
 		return
 	}
 	if g.rng.Float64() < .55 {
-		g.food++
-		g.message = "A fish bites. Dinner is secured."
+		g.foods = append(g.foods, Food{"fish", 500, 35, 0, 28, 0, 0})
+		g.message = "A fish bites. A protein-rich meal is secured."
 	} else {
 		g.message = "The line goes slack. Nothing bites."
 	}
@@ -190,8 +205,8 @@ func (g *Game) hunt() {
 		}
 		if g.rng.Float64() < .5 {
 			a.active = false
-			g.food++
-			g.message = "The hunt succeeds. You bring food back to camp."
+			g.foods = append(g.foods, Food{"game meat", 600, 45, 0, 20, 0, 0})
+			g.message = "The hunt succeeds. You bring nutrient-dense meat back to camp."
 		} else {
 			a.vx *= 3
 			a.vy *= 3
@@ -216,7 +231,7 @@ func (g *Game) canGather() bool {
 		if n.used || abs(float64(n.x)-g.x) >= 42 || abs(float64(n.y)-g.y) >= 42 {
 			continue
 		}
-		if n.kind == "food" || (n.kind == "wood" && g.wood < 12) {
+		if n.kind == "plant" || (n.kind == "wood" && g.wood < 12) {
 			return true
 		}
 	}
@@ -242,13 +257,48 @@ func abs(v float64) float64 {
 	}
 	return v
 }
+func (g *Game) eatBestFood() {
+	if len(g.foods) == 0 {
+		return
+	}
+	best := 0
+	for i := range g.foods {
+		if g.foods[i].calories > g.foods[best].calories {
+			best = i
+		}
+	}
+	meal := g.foods[best]
+	g.foods = append(g.foods[:best], g.foods[best+1:]...)
+	if g.rng.Float64() < meal.risk {
+		g.sickTimer = 8
+		g.hunger -= 8
+		if g.hunger < 0 {
+			g.hunger = 0
+		}
+		g.message = fmt.Sprintf("The %s makes you sick. You misidentified a risky plant.", meal.name)
+		return
+	}
+	restore := meal.calories / 20
+	g.hunger += restore
+	if g.hunger > 100 {
+		g.hunger = 100
+	}
+	g.eatenCalories += meal.calories
+	g.eatenProtein += meal.protein
+	g.eatenCarbs += meal.carbs
+	g.eatenFat += meal.fat
+	g.eatenFiber += meal.fiber
+	g.message = fmt.Sprintf("Automatic meal: %s, %dkcal, P%d C%d F%d Fiber%d.", meal.name, meal.calories, meal.protein, meal.carbs, meal.fat, meal.fiber)
+}
 func (g *Game) tick() {
-	if g.hunger <= 35 && g.food > 0 {
-		g.food--
-		g.hunger += 24
-		g.message = "Hunger triggers an automatic meal."
+	if g.hunger <= 35 && len(g.foods) > 0 {
+		g.eatBestFood()
 	}
 	g.hunger--
+	if g.sickTimer > 0 {
+		g.sickTimer--
+		g.warmth--
+	}
 	if g.fire {
 		g.warmth += 2
 	} else {
@@ -261,7 +311,7 @@ func (g *Game) tick() {
 		g.warmth -= 2
 	}
 	if g.hunger <= 0 || g.warmth <= 0 {
-		g.message = "You did not make it. Press R to try again."
+		g.message = "You did not make it. Press Escape to try again."
 	}
 	if g.hunger < 0 {
 		g.hunger = 0
@@ -292,12 +342,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		if n.used {
 			continue
 		}
-		if n.kind == "wood" && g.wood < 12 {
+		if n.kind == "wood" {
 			ebitenutil.DrawRect(screen, float64(n.x-8), float64(n.y-12), 16, 24, color.RGBA{38, 64, 40, 255})
 			ebitenutil.DrawRect(screen, float64(n.x-13), float64(n.y-5), 26, 7, color.RGBA{102, 67, 41, 255})
 		}
-		if n.kind == "food" {
-			ebitenutil.DrawRect(screen, float64(n.x-8), float64(n.y-8), 16, 16, color.RGBA{180, 145, 71, 255})
+		if n.kind == "plant" {
+			c := color.RGBA{96, 180, 78, 255}
+			if n.food.risk > 0 {
+				c = color.RGBA{154, 93, 167, 255}
+			}
+			ebitenutil.DrawRect(screen, float64(n.x-7), float64(n.y-10), 14, 20, c)
+			ebitenutil.DrawRect(screen, float64(n.x-11), float64(n.y-3), 22, 6, color.RGBA{74, 135, 65, 255})
 		}
 		if n.kind == "camp" {
 			ebitenutil.DrawRect(screen, float64(n.x-16), float64(n.y-10), 32, 20, color.RGBA{93, 59, 43, 255})
@@ -319,7 +374,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	ebitenutil.DrawRect(screen, g.x-5, g.y-13, 10, 7, color.RGBA{85, 52, 36, 255})
 	text.Draw(screen, fmt.Sprintf("LAST LIGHT   DAY %d   %02d:00   %s", g.day, int(g.hour), g.weather), basicfont.Face7x13, 32, 28, color.White)
 	text.Draw(screen, version, basicfont.Face7x13, 575, 28, color.RGBA{180, 205, 190, 255})
-	text.Draw(screen, fmt.Sprintf("HUNGER %d   WARMTH %d   WOOD %d   FOOD %d", g.hunger, g.warmth, g.wood, g.food), basicfont.Face7x13, 32, 397, color.White)
+	text.Draw(screen, fmt.Sprintf("HUNGER %d   WARMTH %d   WOOD %d   FOOD %d", g.hunger, g.warmth, g.wood, len(g.foods)), basicfont.Face7x13, 32, 397, color.White)
+	text.Draw(screen, fmt.Sprintf("EATEN KCAL %d   P %d   C %d   F %d   Fi %d", g.eatenCalories, g.eatenProtein, g.eatenCarbs, g.eatenFat, g.eatenFiber), basicfont.Face7x13, 250, 397, color.RGBA{210, 220, 190, 255})
 	text.Draw(screen, "WASD / ARROWS move", basicfont.Face7x13, 32, 420, color.White)
 	text.Draw(screen, "Q gather", basicfont.Face7x13, 190, 420, g.actionColor(g.canGather()))
 	text.Draw(screen, "1 fire", basicfont.Face7x13, 260, 420, g.actionColor(g.near("camp") && g.wood >= 2))
