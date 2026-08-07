@@ -30,5 +30,6 @@ Versions follow a three-part release rule:
 - Feature (`v0.x.0`): a meaningful new feature; reset the patch number to zero.
 - Shareable (`v1.0.0` or later): promoted when Jeremy feels the game is ready to share with someone.
 
-Food tracks calories plus protein, carbohydrates, fat, and fiber. Risky vegetation can cause sickness when automatically eaten.
+Nutrition is simulated behind the scenes: calories, protein, carbohydrates, fat, and fiber are added by meals and consumed by movement and actions. The player only sees the hunger result. Risky vegetation can cause sickness when automatically eaten.
+
 

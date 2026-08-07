@@ -14,13 +14,14 @@ import (
 )
 
 const tile = 32
-const version = "v0.2.0"
+const version = "v0.2.1"
 
 type Food struct {
 	name                                 string
 	calories, protein, carbs, fat, fiber int
 	risk                                 float64
 }
+type Nutrition struct{ calories, protein, carbs, fat, fiber int }
 type Node struct {
 	x, y int
 	kind string
@@ -33,36 +34,26 @@ type Animal struct {
 	turnIn       float64
 }
 type Game struct {
-	day                                                                      int
-	hour, tickTimer                                                          float64
-	hunger, warmth, wood                                                     int
-	shelter, fire                                                            bool
-	weather, message                                                         string
-	x, y                                                                     float64
-	nodes                                                                    []Node
-	animals                                                                  []Animal
-	foods                                                                    []Food
-	rng                                                                      *rand.Rand
-	eatenCalories, eatenProtein, eatenCarbs, eatenFat, eatenFiber, sickTimer int
+	day                        int
+	hour, tickTimer, moveTimer float64
+	hunger, warmth, wood       int
+	shelter, fire              bool
+	weather, message           string
+	x, y                       float64
+	nodes                      []Node
+	animals                    []Animal
+	foods                      []Food
+	rng                        *rand.Rand
+	nutrition                  Nutrition
+	sickTimer                  int
 }
 
 func NewGame() *Game {
 	berries := Food{"shore berries", 120, 1, 28, 0, 4, 0}
-	return &Game{
-		day: 1, warmth: 70, hunger: 75, wood: 3, weather: "clear", x: 320, y: 250,
-		rng:     rand.New(rand.NewSource(time.Now().UnixNano())),
-		message: "Explore the island. Q interacts with whatever is closest.", foods: []Food{berries, berries},
-		nodes: []Node{
-			{110, 120, "wood", false, Food{}}, {170, 260, "wood", false, Food{}}, {500, 150, "wood", false, Food{}},
-			{535, 255, "wood", false, Food{}}, {95, 305, "wood", false, Food{}}, {350, 105, "wood", false, Food{}},
-			{420, 210, "wood", false, Food{}}, {450, 285, "plant", false, Food{"shore berries", 120, 1, 28, 0, 4, 0}},
-			{145, 185, "plant", false, Food{"wild greens", 80, 3, 10, 0, 5, 0}},
-			{330, 125, "plant", false, Food{"edible root", 320, 4, 72, 1, 8, 0}},
-			{470, 230, "plant", false, Food{"questionable mushroom", 60, 2, 8, 1, 2, .35}},
-			{260, 245, "camp", false, Food{}},
-		},
-		animals: []Animal{{390, 120, .5, .2, true, 1}, {520, 300, -.3, .4, true, 2}, {210, 170, .2, -.4, true, 3}},
-	}
+	return &Game{day: 1, warmth: 70, hunger: 75, wood: 3, weather: "clear", x: 320, y: 250, rng: rand.New(rand.NewSource(time.Now().UnixNano())), message: "Explore the island. Q interacts with whatever is closest.", foods: []Food{berries, berries}, nodes: []Node{
+		{110, 120, "wood", false, Food{}}, {170, 260, "wood", false, Food{}}, {500, 150, "wood", false, Food{}}, {535, 255, "wood", false, Food{}}, {95, 305, "wood", false, Food{}}, {350, 105, "wood", false, Food{}}, {420, 210, "wood", false, Food{}},
+		{450, 285, "plant", false, Food{"shore berries", 120, 1, 28, 0, 4, 0}}, {145, 185, "plant", false, Food{"wild greens", 80, 3, 10, 0, 5, 0}}, {330, 125, "plant", false, Food{"edible root", 320, 4, 72, 1, 8, 0}}, {470, 230, "plant", false, Food{"questionable mushroom", 60, 2, 8, 1, 2, .35}}, {260, 245, "camp", false, Food{}},
+	}, animals: []Animal{{390, 120, .5, .2, true, 1}, {520, 300, -.3, .4, true, 2}, {210, 170, .2, -.4, true, 3}}}
 }
 
 func (g *Game) Update() error {
@@ -97,16 +88,25 @@ func (g *Game) Update() error {
 	if g.y > 365 {
 		g.y = 365
 	}
+	if dx != 0 || dy != 0 {
+		g.moveTimer += 1.0 / 60.0
+		if g.moveTimer >= 1 {
+			g.moveTimer = 0
+			g.expend(35, 1, 5, 1)
+		}
+	}
 	g.updateAnimals()
 	if inpututil.IsKeyJustPressed(ebiten.KeyQ) {
 		g.interact()
 	}
 	if inpututil.IsKeyJustPressed(ebiten.Key1) && g.near("camp") && g.wood >= 2 {
+		g.expend(30, 0, 5, 1)
 		g.wood -= 2
 		g.fire = true
 		g.message = "The fire catches. Warmth returns."
 	}
 	if inpututil.IsKeyJustPressed(ebiten.Key2) && g.near("camp") && !g.shelter && g.wood >= 6 {
+		g.expend(60, 0, 8, 2)
 		g.wood -= 6
 		g.shelter = true
 		g.message = "A rough shelter stands against the wind."
@@ -124,7 +124,6 @@ func (g *Game) Update() error {
 	}
 	return nil
 }
-
 func (g *Game) updateAnimals() {
 	for i := range g.animals {
 		a := &g.animals[i]
@@ -171,12 +170,14 @@ func (g *Game) gather() {
 			continue
 		}
 		if n.kind == "wood" && g.wood < 12 {
+			g.expend(20, 1, 3, 0)
 			g.wood++
 			n.used = true
 			g.message = "You gather dry wood. No luck involved."
 			return
 		}
 		if n.kind == "plant" {
+			g.expend(15, 0, 2, 0)
 			g.foods = append(g.foods, n.food)
 			n.used = true
 			g.message = fmt.Sprintf("You gather %s. It will be eaten automatically when hunger is low.", n.food.name)
@@ -190,6 +191,7 @@ func (g *Game) fish() {
 		g.message = "You need to stand at the shoreline to fish."
 		return
 	}
+	g.expend(35, 1, 5, 1)
 	if g.rng.Float64() < .55 {
 		g.foods = append(g.foods, Food{"fish", 500, 35, 0, 28, 0, 0})
 		g.message = "A fish bites. A protein-rich meal is secured."
@@ -203,6 +205,7 @@ func (g *Game) hunt() {
 		if !a.active || abs(a.x-g.x) >= 34 || abs(a.y-g.y) >= 34 {
 			continue
 		}
+		g.expend(60, 2, 6, 2)
 		if g.rng.Float64() < .5 {
 			a.active = false
 			g.foods = append(g.foods, Food{"game meat", 600, 45, 0, 20, 0, 0})
@@ -257,6 +260,30 @@ func abs(v float64) float64 {
 	}
 	return v
 }
+func (g *Game) expend(calories, protein, carbs, fat int) {
+	if g.nutrition.calories < calories {
+		g.hunger--
+		if g.hunger < 0 {
+			g.hunger = 0
+		}
+	}
+	g.nutrition.calories -= calories
+	if g.nutrition.calories < 0 {
+		g.nutrition.calories = 0
+	}
+	g.nutrition.protein -= protein
+	if g.nutrition.protein < 0 {
+		g.nutrition.protein = 0
+	}
+	g.nutrition.carbs -= carbs
+	if g.nutrition.carbs < 0 {
+		g.nutrition.carbs = 0
+	}
+	g.nutrition.fat -= fat
+	if g.nutrition.fat < 0 {
+		g.nutrition.fat = 0
+	}
+}
 func (g *Game) eatBestFood() {
 	if len(g.foods) == 0 {
 		return
@@ -283,12 +310,12 @@ func (g *Game) eatBestFood() {
 	if g.hunger > 100 {
 		g.hunger = 100
 	}
-	g.eatenCalories += meal.calories
-	g.eatenProtein += meal.protein
-	g.eatenCarbs += meal.carbs
-	g.eatenFat += meal.fat
-	g.eatenFiber += meal.fiber
-	g.message = fmt.Sprintf("Automatic meal: %s, %dkcal, P%d C%d F%d Fiber%d.", meal.name, meal.calories, meal.protein, meal.carbs, meal.fat, meal.fiber)
+	g.nutrition.calories += meal.calories
+	g.nutrition.protein += meal.protein
+	g.nutrition.carbs += meal.carbs
+	g.nutrition.fat += meal.fat
+	g.nutrition.fiber += meal.fiber
+	g.message = fmt.Sprintf("Automatic meal: %s restores %d hunger.", meal.name, restore)
 }
 func (g *Game) tick() {
 	if g.hunger <= 35 && len(g.foods) > 0 {
@@ -375,7 +402,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	text.Draw(screen, fmt.Sprintf("LAST LIGHT   DAY %d   %02d:00   %s", g.day, int(g.hour), g.weather), basicfont.Face7x13, 32, 28, color.White)
 	text.Draw(screen, version, basicfont.Face7x13, 575, 28, color.RGBA{180, 205, 190, 255})
 	text.Draw(screen, fmt.Sprintf("HUNGER %d   WARMTH %d   WOOD %d   FOOD %d", g.hunger, g.warmth, g.wood, len(g.foods)), basicfont.Face7x13, 32, 397, color.White)
-	text.Draw(screen, fmt.Sprintf("EATEN KCAL %d   P %d   C %d   F %d   Fi %d", g.eatenCalories, g.eatenProtein, g.eatenCarbs, g.eatenFat, g.eatenFiber), basicfont.Face7x13, 250, 397, color.RGBA{210, 220, 190, 255})
 	text.Draw(screen, "WASD / ARROWS move", basicfont.Face7x13, 32, 420, color.White)
 	text.Draw(screen, "Q gather", basicfont.Face7x13, 190, 420, g.actionColor(g.canGather()))
 	text.Draw(screen, "1 fire", basicfont.Face7x13, 260, 420, g.actionColor(g.near("camp") && g.wood >= 2))
