@@ -27,4 +27,6 @@ func saveRunLog(events []LogEvent, hours int) {
 	storage.Call("setItem", "last-light-run-history", string(data))
 	latest, _ := json.Marshal(events)
 	storage.Call("setItem", "last-light-latest-run-log", string(latest))
+	if downloader := js.Global().Get("lastLightDownloadLog"); !downloader.IsUndefined() { downloader.Invoke(string(latest)) }
 }
+
