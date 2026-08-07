@@ -13,8 +13,8 @@ import (
 	"golang.org/x/image/font/basicfont"
 )
 
-const tile = 32
-const version = "v0.6.11"
+const tile = 32`r`nconst maxWood = 20
+const version = "v0.6.12"
 
 type Food struct {
 	name                                 string
@@ -185,7 +185,7 @@ func (g *Game) gather() {
 		if n.used || abs(float64(n.x)-g.x) >= 42 || abs(float64(n.y)-g.y) >= 42 {
 			continue
 		}
-		if n.kind != "plant" && !(n.kind == "wood" && g.wood < 12) {
+		if n.kind != "plant" && !(n.kind == "wood" && g.wood < maxWood) {
 			continue
 		}
 		dx, dy := float64(n.x)-g.x, float64(n.y)-g.y
@@ -266,7 +266,7 @@ func (g *Game) canGather() bool {
 		if n.used || abs(float64(n.x)-g.x) >= 42 || abs(float64(n.y)-g.y) >= 42 {
 			continue
 		}
-		if n.kind == "plant" || (n.kind == "wood" && g.wood < 12) {
+		if n.kind == "plant" || (n.kind == "wood" && g.wood < maxWood) {
 			return true
 		}
 	}
@@ -525,3 +525,4 @@ func main() {
 		panic(err)
 	}
 }
+
